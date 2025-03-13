@@ -44,6 +44,42 @@ import torch
 from tqdm import tqdm
 from datetime import datetime
 
+import pygame
+from threading import Thread
+
+
+x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
+joystick_use = True
+joystick_opened = False
+
+if joystick_use:
+    pygame.init()
+    try:
+        # get joystick
+        joystick = pygame.joystick.Joystick(0)
+        joystick.init()
+        joystick_opened = True
+    except Exception as e:
+        print(f"无法打开手柄：{e}")
+    # joystick thread exit flag
+    exit_flag = False
+
+    def handle_joystick_input():
+        global exit_flag, x_vel_cmd, y_vel_cmd, yaw_vel_cmd, head_vel_cmd
+        
+        
+        while not exit_flag:
+            # get joystick input
+            pygame.event.get()
+            # update robot command
+            x_vel_cmd = -joystick.get_axis(1) * 1
+            y_vel_cmd = -joystick.get_axis(0) * 1
+            yaw_vel_cmd = -joystick.get_axis(3) * 1
+            pygame.time.delay(100)
+
+    if joystick_opened and joystick_use:
+        joystick_thread = Thread(target=handle_joystick_input)
+        joystick_thread.start()
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -112,7 +148,8 @@ def play(args):
             os.mkdir(experiment_dir)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
-    for i in tqdm(range(stop_state_log)):
+    # for i in tqdm(range(stop_state_log)):
+    while 1:
 
         actions = policy(obs.detach()) # * 0.
         
@@ -121,6 +158,12 @@ def play(args):
             env.commands[:, 1] = 0.
             env.commands[:, 2] = 0.
             env.commands[:, 3] = 0.
+        else:
+            env.commands[:, 0] = x_vel_cmd
+            env.commands[:, 1] = y_vel_cmd
+            env.commands[:, 2] = 0.
+            env.commands[:, 3] = yaw_vel_cmd
+            
 
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
@@ -164,6 +207,6 @@ def play(args):
 if __name__ == '__main__':
     EXPORT_POLICY = True
     RENDER = True
-    FIX_COMMAND = True
+    FIX_COMMAND = False
     args = get_args()
     play(args)
