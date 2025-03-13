@@ -35,8 +35,11 @@ from .base.legged_robot import LeggedRobot
 
 from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
 from .custom.humanoid_env import XBotLFreeEnv
+from .custom.xbotl_paper_config import XBotLPaperCfg, XBotLPaperCfgPPO
+from .custom.xbotl_paper_env import XBotLPaperEnv
 
 from humanoid.utils.task_registry import task_registry
 
 
-task_registry.register( "humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
+task_registry.register("humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
+task_registry.register("xbotl_paper_ppo", XBotLPaperEnv, XBotLPaperCfg(), XBotLPaperCfgPPO())
