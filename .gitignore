@@ -64,3 +64,4 @@ videos
 *.egg-info
 __pycache__
 test*
+figures

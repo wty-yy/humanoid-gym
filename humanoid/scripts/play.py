@@ -119,7 +119,7 @@ def play(args):
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
 
-    logger = Logger(env.dt)
+    logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     robot_index = 0 # which robot is used for logging
     joint_index = 1 # which joint is used for logging
     stop_state_log = 1200 # number of steps before plotting states
@@ -142,6 +142,7 @@ def play(args):
         video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
         experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
         dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
+        print(dir)
         if not os.path.exists(video_dir):
             os.mkdir(video_dir)
         if not os.path.exists(experiment_dir):
@@ -149,61 +150,62 @@ def play(args):
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
     # for i in tqdm(range(stop_state_log)):
-    while 1:
+    try:
+        while 1:
 
-        actions = policy(obs.detach()) # * 0.
-        
-        if FIX_COMMAND:
-            env.commands[:, 0] = 0.5    # 1.0
-            env.commands[:, 1] = 0.
-            env.commands[:, 2] = 0.
-            env.commands[:, 3] = 0.
-        else:
-            env.commands[:, 0] = x_vel_cmd
-            env.commands[:, 1] = y_vel_cmd
-            env.commands[:, 2] = 0.
-            env.commands[:, 3] = yaw_vel_cmd
-        
-        print(f"[DEBUG]: {env.commands=}")
+            actions = policy(obs.detach()) # * 0.
             
+            if FIX_COMMAND:
+                env.commands[:, 0] = 1.5    # 1.0
+                env.commands[:, 1] = 0.
+                env.commands[:, 2] = 0.
+                env.commands[:, 3] = 0.
+            else:
+                env.commands[:, 0] = x_vel_cmd
+                env.commands[:, 1] = y_vel_cmd
+                env.commands[:, 2] = 0.
+                env.commands[:, 3] = yaw_vel_cmd
             
+                
+                
 
-        obs, critic_obs, rews, dones, infos = env.step(actions.detach())
+            obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
-        if RENDER:
-            env.gym.fetch_results(env.sim, True)
-            env.gym.step_graphics(env.sim)
-            env.gym.render_all_camera_sensors(env.sim)
-            img = env.gym.get_camera_image(env.sim, env.envs[0], h1, gymapi.IMAGE_COLOR)
-            img = np.reshape(img, (1080, 1920, 4))
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            video.write(img[..., :3])
+            if RENDER:
+                env.gym.fetch_results(env.sim, True)
+                env.gym.step_graphics(env.sim)
+                env.gym.render_all_camera_sensors(env.sim)
+                img = env.gym.get_camera_image(env.sim, env.envs[0], h1, gymapi.IMAGE_COLOR)
+                img = np.reshape(img, (1080, 1920, 4))
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                video.write(img[..., :3])
 
-        logger.log_states(
-            {
-                'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
-                'dof_pos': env.dof_pos[robot_index, joint_index].item(),
-                'dof_vel': env.dof_vel[robot_index, joint_index].item(),
-                'dof_torque': env.torques[robot_index, joint_index].item(),
-                'command_x': env.commands[robot_index, 0].item(),
-                'command_y': env.commands[robot_index, 1].item(),
-                'command_yaw': env.commands[robot_index, 2].item(),
-                'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
-                'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
-                'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
-                'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
-                'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
-            }
-            )
-        # ====================== Log states ======================
-        if infos["episode"]:
-            num_episodes = torch.sum(env.reset_buf).item()
-            if num_episodes>0:
-                logger.log_rewards(infos["episode"], num_episodes)
+            logger.log_states(
+                {
+                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                    'dof_pos': env.dof_pos[robot_index, joint_index].item(),
+                    'dof_vel': env.dof_vel[robot_index, joint_index].item(),
+                    'dof_torque': env.torques[robot_index, joint_index].item(),
+                    'command_x': env.commands[robot_index, 0].item(),
+                    'command_y': env.commands[robot_index, 1].item(),
+                    'command_yaw': env.commands[robot_index, 2].item(),
+                    'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
+                    'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
+                    'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
+                    'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+                    'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
+                }
+                )
+            # ====================== Log states ======================
+            if infos["episode"]:
+                num_episodes = torch.sum(env.reset_buf).item()
+                if num_episodes>0:
+                    logger.log_rewards(infos["episode"], num_episodes)
+    except KeyboardInterrupt:
+        pass
+    # logger.print_rewards()
+    logger.plot()
 
-    logger.print_rewards()
-    logger.plot_states()
-    
     if RENDER:
         video.release()
 

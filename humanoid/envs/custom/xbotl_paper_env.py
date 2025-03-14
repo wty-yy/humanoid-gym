@@ -128,7 +128,7 @@ class XBotLPaperEnv(XBotLFreeEnv):
     self.ref_feet_vel = torch.zeros_like(self.ref_feet_height)
     foot_height_target = self._get_foot_heigh_target(half_phase)
     foot_vel_target = self._get_foot_vel_target(half_phase)
-    masks = [phase >= 0.5, phase < 0.5]  # left and right foot mask
+    masks = [phase <= 0.5, phase > 0.5]  # left and right foot mask
     for i, mask in enumerate(masks):
       self.ref_feet_height[mask, i] = foot_height_target[mask]
       self.ref_feet_vel[mask, i] = foot_vel_target[mask]
@@ -153,7 +153,6 @@ class XBotLPaperEnv(XBotLFreeEnv):
       torch.zeros(self.num_envs, 2, dtype=self.commands.dtype, device=self.device),
       self.commands[:, 2:3]
     ], dim=1)
-    # print(f"[DEBUG]: {self.commands=}, {self.base_ang_vel=}")
     rew = self._phi(cmd - self.base_ang_vel, 7.)
     return rew
   

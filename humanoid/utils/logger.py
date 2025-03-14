@@ -29,18 +29,27 @@
 #
 # Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
 
+import os
+import time
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 from multiprocessing import Process, Value
+from humanoid import LEGGED_GYM_ROOT_DIR
 
 class Logger:
-    def __init__(self, dt):
+    def __init__(self, dt, experiment_name, run_name, plot_period):
+        figure_dir = Path(LEGGED_GYM_ROOT_DIR) / 'figures' / experiment_name
+        figure_dir.mkdir(exist_ok=True, parents=True)
+        self.path_figure = figure_dir / (time.strftime('%b%d_%H-%M-%S') + run_name + '.png')
         self.state_log = defaultdict(list)
         self.rew_log = defaultdict(list)
         self.dt = dt
         self.num_episodes = 0
+        self.plot_period = plot_period
         self.plot_process = None
+        # self.start_plot_process(self)
 
     def log_state(self, key, value):
         self.state_log[key].append(value)
@@ -60,13 +69,24 @@ class Logger:
         self.rew_log.clear()
 
     def plot_states(self):
-        self.plot_process = Process(target=self._plot)
+        self.plot_process = Process(target=self.plot)
         self.plot_process.start()
+    
+    # @staticmethod
+    # def start_plot_process(logger):
+    #     def thunk(logger: Logger):
+    #         while 1:
+    #             print(len(logger.state_log))
+    #             if len(logger.state_log):
+    #                 logger._plot()
+    #             time.sleep(logger.plot_period)
+    #     logger.plot_process = Process(target=thunk, daemon=True, args=(logger,))
+    #     logger.plot_process.start()
 
-    def _plot(self):
+    def plot(self):
         nb_rows = 3
         nb_cols = 3
-        fig, axs = plt.subplots(nb_rows, nb_cols)
+        fig, axs = plt.subplots(nb_rows, nb_cols, figsize=(15, 15))
         for key, value in self.state_log.items():
             time = np.linspace(0, len(value)*self.dt, len(value))
             break
@@ -124,6 +144,8 @@ class Logger:
         if log["dof_torque"]!=[]: a.plot(time, log["dof_torque"], label='measured')
         a.set(xlabel='time [s]', ylabel='Joint Torque [Nm]', title='Torque')
         a.legend()
+        fig.tight_layout()
+        plt.savefig(self.path_figure, dpi=100)
         plt.show()
 
     def print_rewards(self):
