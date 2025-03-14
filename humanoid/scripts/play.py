@@ -163,6 +163,9 @@ def play(args):
             env.commands[:, 1] = y_vel_cmd
             env.commands[:, 2] = 0.
             env.commands[:, 3] = yaw_vel_cmd
+        
+        print(f"[DEBUG]: {env.commands=}")
+            
             
 
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
@@ -207,6 +210,6 @@ def play(args):
 if __name__ == '__main__':
     EXPORT_POLICY = True
     RENDER = True
-    FIX_COMMAND = False
+    FIX_COMMAND = True
     args = get_args()
     play(args)
