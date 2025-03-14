@@ -27,8 +27,8 @@ class XBotLPaperCfg(XBotLCfg):
       orientation_tracking = 1.0
       base_height_tracking = 1.0
       # period
-      periodic_force = 1e-3
-      periodic_velocity = 1.0
+      periodic_force = 1e-3    # 1.0 -> 1e-3
+      periodic_velocity = 0.0  # 1.0 -> 0.0
       # foot tracking
       foot_height_tracking = 1.0
       foot_vel_tracking = 1.0

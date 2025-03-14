@@ -153,7 +153,7 @@ class XBotLPaperEnv(XBotLFreeEnv):
       torch.zeros(self.num_envs, 2, dtype=self.commands.dtype, device=self.device),
       self.commands[:, 2:3]
     ], dim=1)
-    print(f"[DBEUG]: {self.commands=}, {self.base_ang_vel=}")
+    # print(f"[DEBUG]: {self.commands=}, {self.base_ang_vel=}")
     rew = self._phi(cmd - self.base_ang_vel, 7.)
     return rew
   
