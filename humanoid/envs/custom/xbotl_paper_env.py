@@ -85,7 +85,7 @@ class XBotLPaperEnv(XBotLFreeEnv):
     Returns:
       shape=(N,)
     """
-    return torch.exp(-omega * torch.norm(error, dim=1) ** 2)
+    return torch.exp(-omega * torch.norm(error, dim=1))
 
   def _get_foot_heigh_target(self, half_phase):
     ret = torch.zeros_like(half_phase)
@@ -111,8 +111,8 @@ class XBotLPaperEnv(XBotLFreeEnv):
     """ Return stance_mask, shape=(N, 2) """
     phase = self._get_phase()
     stance_mask = torch.zeros(self.num_envs, 2, dtype=torch.bool, device=self.device)
-    stance_mask[:, 0] = phase >= 0.5
-    stance_mask[:, 1] = phase < 0.5
+    stance_mask[:, 0] = phase < 0.5
+    stance_mask[:, 1] = phase >= 0.5
     return stance_mask
 
   def compute_ref_state(self):
@@ -128,13 +128,10 @@ class XBotLPaperEnv(XBotLFreeEnv):
     self.ref_feet_vel = torch.zeros_like(self.ref_feet_height)
     foot_height_target = self._get_foot_heigh_target(half_phase)
     foot_vel_target = self._get_foot_vel_target(half_phase)
-    masks = [phase <= 0.5, phase > 0.5]  # left and right foot mask
+    masks = [phase > 0.5, phase <= 0.5]  # left and right foot mask
     for i, mask in enumerate(masks):
       self.ref_feet_height[mask, i] = foot_height_target[mask]
       self.ref_feet_vel[mask, i] = foot_vel_target[mask]
-    # Clip for low phase
-    self.ref_feet_height[torch.abs(half_phase) < 0.1] = 0
-    self.ref_feet_vel[torch.abs(half_phase) < 0.1] = 0
     return self.ref_feet_height, self.ref_feet_vel
   
 ########################### Reward ###################################
@@ -199,7 +196,9 @@ class XBotLPaperEnv(XBotLFreeEnv):
     self.last_feet_z = feet_z
     # feet hight should be close to target height
     swing_mask = ~self._get_stance_mask()  # (N,2)
-    rew = self._phi((self.ref_feet_height - self.feet_height) * swing_mask, 5.)
+    rew = self._phi((self.ref_feet_height - self.feet_height) * swing_mask, 50.)
+    half_phase = self._get_phase() % 0.5
+    rew *= (0.1 < half_phase) & (half_phase < 0.4)
     # Reset accumulate feet height
     self.feet_height *= ~contact
     return rew
@@ -211,6 +210,9 @@ class XBotLPaperEnv(XBotLFreeEnv):
     # feet hight should be close to target velocity
     swing_mask = ~self._get_stance_mask()  # (N,2)
     rew = self._phi((self.ref_feet_vel - feet_z_vel) * swing_mask, 5.)
+    # print("[DEBUG]", "="*50)
+    # half_phase = self._get_phase() % 0.5
+    # print(f"foot_vel_tracking={rew}, delta={(self.ref_feet_vel - feet_z_vel) * swing_mask}, {self.ref_feet_vel=}, {feet_z_vel}, {half_phase=}")
     return rew
 
   def _reward_default_joint(self):
