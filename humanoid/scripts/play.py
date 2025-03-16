@@ -156,7 +156,7 @@ def play(args):
             actions = policy(obs.detach()) # * 0.
             
             if FIX_COMMAND:
-                env.commands[:, 0] = 1.5    # 1.0
+                env.commands[:, 0] = 1.
                 env.commands[:, 1] = 0.
                 env.commands[:, 2] = 0.
                 env.commands[:, 3] = 0.
@@ -212,6 +212,6 @@ def play(args):
 if __name__ == '__main__':
     EXPORT_POLICY = True
     RENDER = True
-    FIX_COMMAND = True
+    FIX_COMMAND = False
     args = get_args()
     play(args)

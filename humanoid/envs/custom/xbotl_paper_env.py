@@ -85,7 +85,7 @@ class XBotLPaperEnv(XBotLFreeEnv):
     Returns:
       shape=(N,)
     """
-    return torch.exp(-omega * torch.norm(error, dim=1))
+    return torch.exp(-omega * torch.norm(error, dim=1) ** 2)
 
   def _get_foot_heigh_target(self, half_phase):
     ret = torch.zeros_like(half_phase)
@@ -223,9 +223,7 @@ class XBotLPaperEnv(XBotLFreeEnv):
   
   def _reward_energy_cost(self):
     """ Keep low energy for torque and joint velocity """
-    torque = torch.norm(self.torques, p=1, dim=1)
-    joint_vels = torch.norm(self.dof_vel, p=1, dim=1)
-    rew = torque * joint_vels
+    rew = torch.norm(self.torques * self.dof_vel, p=1, dim=1)
     return rew
   
   def _reward_action_smoothness(self):
