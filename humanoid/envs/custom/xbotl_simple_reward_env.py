@@ -113,6 +113,5 @@ class XBotLSimpleRewardEnv(XBotLPaperEnv):
         self.rigid_state[:, self.feet_indices, 2], dim=1
       )[0]
     ).unsqueeze(1)
-    print(f"{height=}")
     rew = self._phi(self.cfg.rewards.base_height_target - height, 10)
     return rew
