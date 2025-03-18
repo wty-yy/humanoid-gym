@@ -234,3 +234,7 @@ class Kuavo42LeggedHighPDCfg(Kuavo42LeggedCfg):
         for lr in ['l', 'r']:
             for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
                 damping[f'leg_{lr}{idx}_joint'] = value
+
+class Kuavo42LeggedHighPDCfgPPO(Kuavo42LeggedCfgPPO):
+    class runner(Kuavo42LeggedCfgPPO.runner):
+        experiment_name = 'Kuavo42_legged_high_pd_ppo'
