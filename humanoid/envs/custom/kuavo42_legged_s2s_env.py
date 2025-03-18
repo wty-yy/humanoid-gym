@@ -129,9 +129,9 @@ class Kuavo42Leggeds2sEnv(LeggedRobot):
     def _convert_joint_idx(self, vec: torch.Tensor, to_lab: bool):
         x = vec.clone()
         if to_lab:
-            x[:, self.cfg.convert.joint_cvt_idx] = x
+            x[:, self.cfg.convert.joint_cvt_idx] = x.clone()
         else:
-            x = x[:, self.cfg.convert.joint_cvt_idx]
+            x = x[:, self.cfg.convert.joint_cvt_idx].clone()
         return x
 
     def step(self, actions):
@@ -158,7 +158,7 @@ class Kuavo42Leggeds2sEnv(LeggedRobot):
         stance_mask = self._get_gait_phase()
         contact_mask = self.contact_forces[:, self.feet_indices, 2] > 5.
 
-        self.command_input = torch.cat((self.commands[:, :3] * self.commands_scale), dim=1)
+        self.command_input = self.commands[:, :3] * self.commands_scale
 
         q = (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
         dq = self.dof_vel * self.obs_scales.dof_vel

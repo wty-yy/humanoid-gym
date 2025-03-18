@@ -117,14 +117,14 @@ def play(args):
     obs = env.get_observations()
 
     # load policy
-    train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env,
-                                                          name=args.task,
-                                                          args=args,
-                                                          train_cfg=train_cfg)
+    # train_cfg.runner.resume = True
+    # ppo_runner, train_cfg = task_registry.make_alg_runner(env=env,
+    #                                                       name=args.task,
+    #                                                       args=args,
+    #                                                       train_cfg=train_cfg)
     # policy = ppo_runner.get_inference_policy(device=env.device)
     session = ort.InferenceSession(
-        os.path.join(LEGGED_GYM_ROOT_DIR, '../', 'models/v2_2025_3_18.onnx'))
+        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_2025_3_18.onnx'))
     input_name = session.get_inputs()[0].name
 
     # export policy as a jit module (used to run it from C++)
@@ -137,7 +137,7 @@ def play(args):
         inputs = torch.rand([1, obs.shape[-1]]).to(env.device)
         torch.onnx.export(copy.deepcopy(ppo_runner.alg.actor_critic.actor), inputs, onnx_path)
 
-    logger = Logger(env.dt)
+    logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     robot_index = 0  # which robot is used for logging
     joint_index = 1  # which joint is used for logging
     stop_state_log = 1000  # number of steps before plotting states
@@ -183,8 +183,8 @@ def play(args):
         if FIX_COMMAND:
             env.commands[:, 0] = 0.6
             env.commands[:, 1] = 0.0
-            env.commands[:, 2] = 0.6
-            env.commands[:, 4] = 0.
+            env.commands[:, 2] = 0.0
+            # env.commands[:, 4] = 0.
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
         if RENDER:

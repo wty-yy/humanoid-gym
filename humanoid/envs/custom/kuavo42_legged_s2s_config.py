@@ -7,9 +7,9 @@ class Kuavo42Leggeds2sCfg(LeggedRobotCfg):
     """
     class env(LeggedRobotCfg.env):
         # change the observation dim
-        frame_stack = 15
+        frame_stack = 1
         c_frame_stack = 3
-        num_single_obs = 47
+        num_single_obs = 48
         num_observations = int(frame_stack * num_single_obs)
         single_num_privileged_obs = 73
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)

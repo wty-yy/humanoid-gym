@@ -55,6 +55,6 @@ from .custom.kuavo42_legged_config import Kuavo42LeggedHighPDCfg, Kuavo42LeggedC
 from .custom.kuavo42_legged_env import Kuavo42LeggedEnv
 task_registry.register("kuavo42_legged_high_pd_ppo", Kuavo42LeggedEnv, Kuavo42LeggedHighPDCfg(), Kuavo42LeggedCfgPPO())
 
-from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg, Kuavo42LeggedCfgPPO
+from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg
 from .custom.kuavo42_legged_s2s_env import Kuavo42Leggeds2sEnv
 task_registry.register("kuavo42_legged_s2s_ppo", Kuavo42Leggeds2sEnv, Kuavo42Leggeds2sCfg(), Kuavo42LeggedCfgPPO())
