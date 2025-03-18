@@ -33,16 +33,20 @@
 from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .base.legged_robot import LeggedRobot
 
-from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
-from .custom.humanoid_env import XBotLFreeEnv
-from .custom.xbotl_paper_config import XBotLPaperCfg, XBotLPaperCfgPPO
-from .custom.xbotl_paper_env import XBotLPaperEnv
-from .custom.xbotl_simple_reward_config import XBotSimpleRewardCfg, XBotLSimpleRewardCfgPPO
-from .custom.xbotl_simple_reward_env import XBotLSimpleRewardEnv
-
 from humanoid.utils.task_registry import task_registry
 
-
+from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
+from .custom.humanoid_env import XBotLFreeEnv
 task_registry.register("humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
+
+from .custom.xbotl_paper_config import XBotLPaperCfg, XBotLPaperCfgPPO
+from .custom.xbotl_paper_env import XBotLPaperEnv
 task_registry.register("xbotl_paper_ppo", XBotLPaperEnv, XBotLPaperCfg(), XBotLPaperCfgPPO())
+
+from .custom.xbotl_simple_reward_config import XBotSimpleRewardCfg, XBotLSimpleRewardCfgPPO
+from .custom.xbotl_simple_reward_env import XBotLSimpleRewardEnv
 task_registry.register("xbotl_simple_reward_ppo", XBotLSimpleRewardEnv, XBotSimpleRewardCfg(), XBotLSimpleRewardCfgPPO())
+
+from .custom.kuavo42_legged_config import Kuavo42LeggedCfg, Kuavo42LeggedCfgPPO
+from .custom.kuavo42_legged_env import Kuavo42LeggedEnv
+task_registry.register("kuavo42_legged_ppo", Kuavo42LeggedEnv, Kuavo42LeggedCfg(), Kuavo42LeggedCfgPPO())
