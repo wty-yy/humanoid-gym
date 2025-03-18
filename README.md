@@ -39,6 +39,7 @@ v1: 仅包含基础的4个奖励，测试训练，训练结果高度控制非常
 xbotl_simple_reward_v2: 加入1个保持base高度的奖励，高度保持为0.75，高度计算方法为base到最低脚的距离
 
 ## 2025.3.18.
+### kuavo42_legged 
 加入kuavo42_legged环境: 参考[kuavo-rl-opensource](https://gitee.com/leju-robot/kuavo-rl-opensource/)中的`kuavo-robot-train`配置参数，将kuavo42模型加入，仅训练腿部12个关节，奖励参考humanoid-gym
 
 - `biped_s42_fixed_arm.xml`将14的arm关节换成fixed类型，`biped_s42.xml`中修改内容如下：
@@ -73,3 +74,6 @@ xbotl_simple_reward_v2: 加入1个保持base高度的奖励，高度保持为0.7
 参考[`kuavo_s40_env.py`](https://gitee.com/leju-robot/kuavo-rl-opensource/blob/master/kuavo-robot-train/humanoid/envs/custom/kuavo_s40_env.py)和[`kuavo_s42_env.py`](https://gitee.com/leju-robot/kuavo-rl-opensource/blob/master/kuavo-robot-train/humanoid/envs/custom/kuavo_s42_env.py)将配置转入到`kuavo42_legged_env.py`，内容和`humanoid_env.py`保持一致，仅修改类名
 
 修改`legged_robot.py`的`_create_env`函数，支持`foot_names`和`knee_names`作为列表传入（在`foot_name = knee_name = None`时使用）
+
+### 修改pd系数
+训练kuavo42_legged 1.5h完全无法站住，因此修改PD系数，加入新环境`kuavo42_legged_high_pd_ppo`，有更高的x2后的pd系数

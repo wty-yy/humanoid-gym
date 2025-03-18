@@ -223,3 +223,14 @@ class Kuavo42LeggedCfgPPO(LeggedRobotCfgPPO):
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
+
+class Kuavo42LeggedHighPDCfg(Kuavo42LeggedCfg):
+    class control(Kuavo42LeggedCfg.control):
+        # PD Drive parameters:
+        stiffness, damping = {}, {}
+        for lr in ['l', 'r']:
+            for idx, value in zip(range(1, 7), [120.0, 120.0, 120.0, 120.0, 30.0, 30.0]):
+                stiffness[f'leg_{lr}{idx}_joint'] = value
+        for lr in ['l', 'r']:
+            for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
+                damping[f'leg_{lr}{idx}_joint'] = value
