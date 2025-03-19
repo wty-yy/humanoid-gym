@@ -32,8 +32,22 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         foot_names = ['leg_l6_link', 'leg_r6_link']
         knee_names = ['leg_l4_link', 'leg_r4_link']
 
-        terminate_after_contacts_on = ['base_link']
-        penalize_contacts_on = ["base_link"]
+        terminate_after_contacts_on = [
+            'base_link',
+            'leg_r1_link', 'leg_l1_link',
+            'leg_r2_link', 'leg_l2_link',
+            'leg_r3_link', 'leg_l3_link',
+            'leg_r4_link', 'leg_l4_link',
+            'leg_r5_link', 'leg_l5_link',
+        ]
+        penalize_contacts_on = [
+            "base_link",
+            'leg_r1_link', 'leg_l1_link',
+            'leg_r2_link', 'leg_l2_link',
+            'leg_r3_link', 'leg_l3_link',
+            'leg_r4_link', 'leg_l4_link',
+            'leg_r5_link', 'leg_l5_link',
+        ]
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
         replace_cylinder_with_capsule = False
@@ -45,8 +59,8 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         curriculum = False
         # rough terrain only:
         measure_heights = False
-        static_friction = 0.6
-        dynamic_friction = 0.6
+        static_friction = 1.0
+        dynamic_friction = 1.0
         terrain_length = 8.
         terrain_width = 8.
         num_rows = 20  # number of terrain rows (levels)
@@ -177,7 +191,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             torques = -1e-5
             dof_vel = -5e-4
             dof_acc = -1e-7
-            collision = -1.
+            collision = -2000.
 
     class normalization:
         class obs_scales:

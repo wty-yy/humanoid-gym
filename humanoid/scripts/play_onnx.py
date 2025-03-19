@@ -101,7 +101,7 @@ def play(args):
     env_cfg.terrain.num_cols = 5
     env_cfg.terrain.curriculum = False
     env_cfg.terrain.max_init_terrain_level = 5
-    env_cfg.noise.add_noise = True
+    env_cfg.noise.add_noise = False
     # env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
@@ -124,18 +124,8 @@ def play(args):
     #                                                       train_cfg=train_cfg)
     # policy = ppo_runner.get_inference_policy(device=env.device)
     session = ort.InferenceSession(
-        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_2025_3_18.onnx'))
+        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_20250319_lowpd.onnx'))
     input_name = session.get_inputs()[0].name
-
-    # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY:
-        model_path = get_load_path(os.path.join(LEGGED_GYM_ROOT_DIR, 'logs',
-                                                train_cfg.runner.experiment_name),
-                                   load_run=train_cfg.runner.load_run,
-                                   checkpoint=train_cfg.runner.checkpoint)
-        onnx_path = model_path.replace('.pt', '.onnx')
-        inputs = torch.rand([1, obs.shape[-1]]).to(env.device)
-        torch.onnx.export(copy.deepcopy(ppo_runner.alg.actor_critic.actor), inputs, onnx_path)
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     robot_index = 0  # which robot is used for logging
@@ -168,6 +158,7 @@ def play(args):
 
     for i in tqdm(range(stop_state_log)):
 
+        # print(f"[DEBUG]: obs={obs.detach().cpu().numpy()[0,:-12]}")
         actions = torch.tensor(session.run(None, {input_name: obs.detach().cpu().numpy()})[0]).to(
             env.device)
         # actions = policy(obs.detach()) # * 0.

@@ -467,7 +467,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
         Penalizes collisions of the robot with the environment, specifically focusing on selected body parts.
         This encourages the robot to avoid undesired contact with objects or surfaces.
         """
-        return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
+        return torch.any(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1).float()
     
     def _reward_action_smoothness(self):
         """

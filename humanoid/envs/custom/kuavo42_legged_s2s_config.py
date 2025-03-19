@@ -45,8 +45,8 @@ class Kuavo42Leggeds2sCfg(LeggedRobotCfg):
         curriculum = False
         # rough terrain only:
         measure_heights = False
-        static_friction = 0.6
-        dynamic_friction = 0.6
+        static_friction = 1.0
+        dynamic_friction = 1.0
         terrain_length = 8.
         terrain_width = 8.
         num_rows = 20  # number of terrain rows (levels)
@@ -80,14 +80,16 @@ class Kuavo42Leggeds2sCfg(LeggedRobotCfg):
         # PD Drive parameters:
         stiffness, damping = {}, {}
         for lr in ['l', 'r']:
-            for idx, value in zip(range(1, 7), [120.0, 120.0, 120.0, 120.0, 30.0, 30.0]):
+            # for idx, value in zip(range(1, 7), [120.0, 120.0, 120.0, 120.0, 30.0, 30.0]):
+            for idx, value in zip(range(1, 7), [60.0, 60.0, 60.0, 60.0, 15.0, 15.0]):
                 stiffness[f'leg_{lr}{idx}_joint'] = value
         for lr in ['l', 'r']:
-            for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
+            # for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
+            for idx, value in zip(range(1, 7), [34.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
                 damping[f'leg_{lr}{idx}_joint'] = value
 
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.5
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 10  # 100hz
 
