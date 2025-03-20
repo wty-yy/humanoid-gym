@@ -66,18 +66,32 @@ class Kuavo42LeggedEnv(LeggedRobot):
         sin_pos_l = sin_pos.clone()
         sin_pos_r = sin_pos.clone()
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
-        scale_1 = self.cfg.rewards.target_joint_pos_scale
-        scale_2 = 2 * scale_1
+        joint_delta = self.cfg.rewards.target_joints_delta
         # left foot stance phase set to default joint pos
-        sin_pos_l[sin_pos_l > 0] = 0
-        self.ref_dof_pos[:, 2] = sin_pos_l * scale_1
-        self.ref_dof_pos[:, 3] = sin_pos_l * scale_2
-        self.ref_dof_pos[:, 4] = sin_pos_l * scale_1
+        default_joint_angles_l = [
+            self.cfg.init_state.default_joint_angles[key] for key in [
+                'leg_l2_joint', 'leg_l3_joint', 'leg_l4_joint']
+        ]
+        for i in range(3):
+            self.ref_dof_pos[:, 2+i] = torch.where(
+                sin_pos_l < 0,
+                default_joint_angles_l[i],
+                -sin_pos_l * joint_delta[i] + default_joint_angles_l[i]
+            )
+        # be careful, leju coordinate of the left and right feet is obtained by translation,
+        # so we need sin_pos_l be positive: -sin_pos_l
+
         # right foot stance phase set to default joint pos
-        sin_pos_r[sin_pos_r < 0] = 0
-        self.ref_dof_pos[:, 8] = sin_pos_r * scale_1
-        self.ref_dof_pos[:, 9] = sin_pos_r * scale_2
-        self.ref_dof_pos[:, 10] = sin_pos_r * scale_1
+        default_joint_angles_r = [
+            self.cfg.init_state.default_joint_angles[key] for key in [
+                'leg_r2_joint', 'leg_r3_joint', 'leg_r4_joint']
+        ]
+        for i in range(3):
+            self.ref_dof_pos[:, 8+i] = torch.where(
+                sin_pos_r >= 0,
+                default_joint_angles_r[i],
+                sin_pos_r * joint_delta[i] + default_joint_angles_r[i]
+            )
         # Double support phase
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0
 

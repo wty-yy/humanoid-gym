@@ -79,4 +79,7 @@ xbotl_simple_reward_v2: 加入1个保持base高度的奖励，高度保持为0.7
 训练kuavo42_legged 1.5h完全无法站住，因此修改PD系数，加入新环境`kuavo42_legged_high_pd_ppo`，有更高的x2后的pd系数
 
 ## 2025.3.20.
-1. 加入`kuavo42_legged_simple_reward_ppo`环境，使用4个简易奖励函数在kuavo42上进行训练
+1. 加入`kuavo42_legged_simple_reward_ppo`环境，使用4个简易奖励函数在kuavo42上进行训练，训练出来的模型能稳定站住，但学不会抬脚
+
+### kuavo42_legged_v3
+1. 修复模型的抬脚奖励错误，左右脚是平移得到的，而非xbotl中的对称，并且默认的关节不是0，所以现在考虑从default关节出发，加上delta的角度得到目标关节角度
