@@ -38,6 +38,7 @@ from humanoid import LEGGED_GYM_ROOT_DIR
 # import isaacgym
 from humanoid.envs import *
 from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from humanoid.utils.logger_legged_info import Logger as LoggerLeggedInfo
 from isaacgym.torch_utils import *
 
 import torch
@@ -120,6 +121,7 @@ def play(args):
         print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
+    logger_legged_info = LoggerLeggedInfo(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     robot_index = 0 # which robot is used for logging
     joint_index = 1 # which joint is used for logging
     stop_state_log = 1200 # number of steps before plotting states
@@ -153,7 +155,7 @@ def play(args):
     try:
         while 1:
 
-            actions = policy(obs.detach()) # * 0.
+            actions = policy(obs.detach()).detach() # * 0.
             
             if FIX_COMMAND:
                 env.commands[:, 0] = 1.
@@ -169,7 +171,7 @@ def play(args):
                 
                 
 
-            obs, critic_obs, rews, dones, infos = env.step(actions.detach())
+            obs, critic_obs, rews, dones, infos = env.step(actions)
 
             if RENDER:
                 env.gym.fetch_results(env.sim, True)
@@ -196,6 +198,17 @@ def play(args):
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
                 }
                 )
+            logger_legged_info.log_states({
+                'dof_pos_target': actions[robot_index, :].cpu().numpy() * env.cfg.control.action_scale,
+                'dof_pos': env.dof_pos[robot_index, :].cpu().numpy(),
+                'dof_pos_ref': env.ref_dof_pos[robot_index, :].detach().cpu().numpy(),
+                'command_x': env.commands[robot_index, 0].item(),
+                'command_y': env.commands[robot_index, 1].item(),
+                'command_yaw': env.commands[robot_index, 2].item(),
+                'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
+                'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
+                'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+            })
             # ====================== Log states ======================
             if infos["episode"]:
                 num_episodes = torch.sum(env.reset_buf).item()
@@ -205,6 +218,7 @@ def play(args):
         pass
     # logger.print_rewards()
     logger.plot()
+    logger_legged_info.plot()
 
     if RENDER:
         video.release()

@@ -47,48 +47,42 @@ from tqdm import tqdm
 from datetime import datetime
 import onnxruntime as ort
 
-
-def get_symm_obs(obs_batch):
-    # is_standing = obs_batch.reshape(batch_size, 15, 92)[:, -1, 5].reshape(batch_size)
-
-    batch_size = obs_batch.size(0)
-    obs_hist = obs_batch.clone().reshape(batch_size, 15, 92)
-
-    def symm_func(obs_hist, idx, start):
-        obs_hist[:, idx, start:start + 12] = torch.roll(obs_hist[:, i, start:start + 12],
-                                                        shifts=6,
-                                                        dims=1)
-        obs_hist[:, idx, [start, start + 1, start + 5, start + 6, start + 7, start + 11]] *= -1
-        obs_hist[:, idx, start + 12:start + 26] = torch.roll(obs_hist[:, i, start + 12:start + 26],
-                                                             shifts=7,
-                                                             dims=1)
-        obs_hist[:, idx, [
-            start + 13, start + 14, start + 16, start + 18, start + 20, start + 21, start +
-            23, start + 25
-        ]] *= -1
-
-    for i in range(15):
-        obs_hist[:, i, [0, 1, 3, 4]] *= -1
-        symm_func(obs_hist, i, 6)
-        symm_func(obs_hist, i, 32)
-        symm_func(obs_hist, i, 58)
-        obs_hist[:, i, [84, 86, 87, 90]] *= -1
-
-    return obs_hist.reshape(batch_size, -1)
+import pygame
+from threading import Thread
 
 
-def get_symm_action(action_batch):
-    res = action_batch.clone()
-    start = 0
-    res[:, start:start + 12] = torch.roll(res[:, start:start + 12], shifts=6, dims=1)
-    res[:, [start, start + 1, start + 5, start + 6, start + 7, start + 11]] *= -1
-    res[:, start + 12:start + 26] = torch.roll(res[:, start + 12:start + 26], shifts=7, dims=1)
-    res[:, [
-        start + 13, start + 14, start + 16, start + 18, start + 20, start + 21, start + 23, start +
-        25
-    ]] *= -1
-    return res
+x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
+joystick_use = True
+joystick_opened = False
 
+if joystick_use:
+    pygame.init()
+    try:
+        # get joystick
+        joystick = pygame.joystick.Joystick(0)
+        joystick.init()
+        joystick_opened = True
+    except Exception as e:
+        print(f"无法打开手柄：{e}")
+    # joystick thread exit flag
+    exit_flag = False
+
+    def handle_joystick_input():
+        global exit_flag, x_vel_cmd, y_vel_cmd, yaw_vel_cmd, head_vel_cmd
+        
+        
+        while not exit_flag:
+            # get joystick input
+            pygame.event.get()
+            # update robot command
+            x_vel_cmd = -joystick.get_axis(1) * 1
+            y_vel_cmd = -joystick.get_axis(0) * 1
+            yaw_vel_cmd = -joystick.get_axis(3) * 1
+            pygame.time.delay(100)
+
+    if joystick_opened and joystick_use:
+        joystick_thread = Thread(target=handle_joystick_input)
+        joystick_thread.start()
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -117,14 +111,9 @@ def play(args):
     obs = env.get_observations()
 
     # load policy
-    # train_cfg.runner.resume = True
-    # ppo_runner, train_cfg = task_registry.make_alg_runner(env=env,
-    #                                                       name=args.task,
-    #                                                       args=args,
-    #                                                       train_cfg=train_cfg)
-    # policy = ppo_runner.get_inference_policy(device=env.device)
     session = ort.InferenceSession(
-        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_20250319_lowpd.onnx'))
+        # os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_20250319_lowpd.onnx'))
+        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/leju_official/42_model_skw_0115_p120.onnx'))
     input_name = session.get_inputs()[0].name
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
@@ -140,87 +129,82 @@ def play(args):
         camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1), np.deg2rad(135))
         actor_handle = env.gym.get_actor_handle(env.envs[0], 0)
         body_handle = env.gym.get_actor_rigid_body_handle(env.envs[0], actor_handle, 0)
-        env.gym.attach_camera_to_body(h1, env.envs[0], body_handle,
-                                      gymapi.Transform(camera_offset, camera_rotation),
-                                      gymapi.FOLLOW_POSITION)
+        env.gym.attach_camera_to_body(
+            h1, env.envs[0], body_handle,
+            gymapi.Transform(camera_offset, camera_rotation),
+            gymapi.FOLLOW_POSITION
+        )
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
-        experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos',
-                                      train_cfg.runner.experiment_name)
-        dir = os.path.join(experiment_dir,
-                           datetime.now().strftime('%b%d_%H-%M-%S') + args.run_name + '.mp4')
+        experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
+        dir = os.path.join(
+            experiment_dir,
+            datetime.now().strftime('%b%d_%H-%M-%S') + args.run_name + '.mp4'
+        )
         if not os.path.exists(video_dir):
             os.mkdir(video_dir)
         if not os.path.exists(experiment_dir):
             os.mkdir(experiment_dir)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
-    for i in tqdm(range(stop_state_log)):
+    # for i in tqdm(range(stop_state_log)):
+    try:
+        while 1:
 
-        # print(f"[DEBUG]: obs={obs.detach().cpu().numpy()[0,:-12]}")
-        actions = torch.tensor(session.run(None, {input_name: obs.detach().cpu().numpy()})[0]).to(
-            env.device)
-        # actions = policy(obs.detach()) # * 0.
+            actions = torch.tensor(session.run(None, {input_name: obs.detach().cpu().numpy()})[0]).to(
+                env.device)
 
-        # batch_size = obs.size(0)
-        # sin_cos = obs.reshape(batch_size, 15, 92)[:, -1, :2]
-        # phase = torch.atan2(sin_cos[:, 0], sin_cos[:, 1]) / (2 * torch.pi)
-        # right_idx = (phase > -0.2) & (phase < 0.3)
-        #
-        # actions[right_idx] = get_symm_action(policy(get_symm_obs(obs)))[right_idx]
-        # # print(right_idx)
+            if FIX_COMMAND:
+                env.commands[:, 0] = 1.
+                env.commands[:, 1] = 0.
+                env.commands[:, 2] = 0.
+                env.commands[:, 3] = 0.
+            else:
+                env.commands[:, 0] = x_vel_cmd
+                env.commands[:, 1] = y_vel_cmd
+                env.commands[:, 2] = 0.
+                env.commands[:, 3] = yaw_vel_cmd
+            
+                
+                
 
-        if FIX_COMMAND:
-            env.commands[:, 0] = 0.6
-            env.commands[:, 1] = 0.0
-            env.commands[:, 2] = 0.0
-            # env.commands[:, 4] = 0.
-        obs, critic_obs, rews, dones, infos = env.step(actions.detach())
+            obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
-        if RENDER:
-            env.gym.fetch_results(env.sim, True)
-            env.gym.step_graphics(env.sim)
-            env.gym.render_all_camera_sensors(env.sim)
-            img = env.gym.get_camera_image(env.sim, env.envs[0], h1, gymapi.IMAGE_COLOR)
-            img = np.reshape(img, (1080, 1920, 4))
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            video.write(img[..., :3])
+            if RENDER:
+                env.gym.fetch_results(env.sim, True)
+                env.gym.step_graphics(env.sim)
+                env.gym.render_all_camera_sensors(env.sim)
+                img = env.gym.get_camera_image(env.sim, env.envs[0], h1, gymapi.IMAGE_COLOR)
+                img = np.reshape(img, (1080, 1920, 4))
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                video.write(img[..., :3])
 
-        logger.log_states({
-            'dof_pos_target':
-            actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
-            'dof_pos':
-            env.dof_pos[robot_index, joint_index].item(),
-            'dof_vel':
-            env.dof_vel[robot_index, joint_index].item(),
-            'dof_torque':
-            env.torques[robot_index, joint_index].item(),
-            'command_x':
-            env.commands[robot_index, 0].item(),
-            'command_y':
-            env.commands[robot_index, 1].item(),
-            'command_yaw':
-            env.commands[robot_index, 2].item(),
-            'base_vel_x':
-            env.base_lin_vel[robot_index, 0].item(),
-            'base_vel_y':
-            env.base_lin_vel[robot_index, 1].item(),
-            'base_vel_z':
-            env.base_lin_vel[robot_index, 2].item(),
-            'base_vel_yaw':
-            env.base_ang_vel[robot_index, 2].item(),
-            'contact_forces_z':
-            env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
-        })
-        # ====================== Log states ======================
-        if infos["episode"]:
-            num_episodes = torch.sum(env.reset_buf).item()
-            if num_episodes > 0:
-                logger.log_rewards(infos["episode"], num_episodes)
-
-    logger.print_rewards()
-    logger.plot_states()
+            logger.log_states(
+                {
+                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                    'dof_pos': env.dof_pos[robot_index, joint_index].item(),
+                    'dof_vel': env.dof_vel[robot_index, joint_index].item(),
+                    'dof_torque': env.torques[robot_index, joint_index].item(),
+                    'command_x': env.commands[robot_index, 0].item(),
+                    'command_y': env.commands[robot_index, 1].item(),
+                    'command_yaw': env.commands[robot_index, 2].item(),
+                    'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
+                    'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
+                    'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
+                    'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+                    'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
+                }
+                )
+            # ====================== Log states ======================
+            if infos["episode"]:
+                num_episodes = torch.sum(env.reset_buf).item()
+                if num_episodes > 0:
+                    logger.log_rewards(infos["episode"], num_episodes)
+    except KeyboardInterrupt:
+        pass
+    # logger.print_rewards()
+    logger.plot()
 
     if RENDER:
         video.release()
