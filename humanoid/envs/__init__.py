@@ -54,3 +54,7 @@ task_registry.register("kuavo42_legged_ppo", Kuavo42LeggedEnv, Kuavo42LeggedCfg(
 from .custom.kuavo42_legged_config import Kuavo42LeggedHighPDCfg, Kuavo42LeggedHighPDCfgPPO
 from .custom.kuavo42_legged_env import Kuavo42LeggedEnv
 task_registry.register("kuavo42_legged_high_pd_ppo", Kuavo42LeggedEnv, Kuavo42LeggedHighPDCfg(), Kuavo42LeggedHighPDCfgPPO())
+
+from .custom.kuavo42_legged_simple_reward_config import Kuavo42LeggedSimpleRewardCfg, Kuavo42LeggedSimpleRewardCfgPPO
+from .custom.kuavo42_legged_simple_reward_env import Kuavo42LeggedSimpleRewardEnv
+task_registry.register("kuavo42_legged_simple_reward_ppo", Kuavo42LeggedSimpleRewardEnv, Kuavo42LeggedSimpleRewardCfg(), Kuavo42LeggedSimpleRewardCfgPPO())
