@@ -1,15 +1,15 @@
 from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class Kuavo42LeggedCfg(LeggedRobotCfg):
+class Kuavo42Leggeds2sCfg(LeggedRobotCfg):
     """
     Configuration class for the XBotL humanoid robot.
     """
     class env(LeggedRobotCfg.env):
         # change the observation dim
-        frame_stack = 15
+        frame_stack = 1
         c_frame_stack = 3
-        num_single_obs = 47
+        num_single_obs = 48
         num_observations = int(frame_stack * num_single_obs)
         single_num_privileged_obs = 73
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
@@ -32,22 +32,8 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         foot_names = ['leg_l6_link', 'leg_r6_link']
         knee_names = ['leg_l4_link', 'leg_r4_link']
 
-        terminate_after_contacts_on = [
-            'base_link',
-            'leg_r1_link', 'leg_l1_link',
-            'leg_r2_link', 'leg_l2_link',
-            'leg_r3_link', 'leg_l3_link',
-            'leg_r4_link', 'leg_l4_link',
-            'leg_r5_link', 'leg_l5_link',
-        ]
-        penalize_contacts_on = [
-            "base_link",
-            'leg_r1_link', 'leg_l1_link',
-            'leg_r2_link', 'leg_l2_link',
-            'leg_r3_link', 'leg_l3_link',
-            'leg_r4_link', 'leg_l4_link',
-            'leg_r5_link', 'leg_l5_link',
-        ]
+        terminate_after_contacts_on = ['base_link']
+        penalize_contacts_on = ["base_link"]
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
         replace_cylinder_with_capsule = False
@@ -94,14 +80,16 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         # PD Drive parameters:
         stiffness, damping = {}, {}
         for lr in ['l', 'r']:
+            # for idx, value in zip(range(1, 7), [120.0, 120.0, 120.0, 120.0, 30.0, 30.0]):
             for idx, value in zip(range(1, 7), [60.0, 60.0, 60.0, 60.0, 15.0, 15.0]):
                 stiffness[f'leg_{lr}{idx}_joint'] = value
         for lr in ['l', 'r']:
+            # for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
             for idx, value in zip(range(1, 7), [34.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
                 damping[f'leg_{lr}{idx}_joint'] = value
 
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.5
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 10  # 100hz
 
@@ -154,8 +142,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         min_dist = 0.25
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
-        # target_joint_pos_scale = 0.24    # rad
-        target_joints_delta = [-0.2, 0.3, -0.1]  # leg, knee, foot
+        target_joint_pos_scale = 0.24    # rad
         target_feet_height = 0.12        # m
         cycle_time = 0.97                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -192,64 +179,23 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             torques = -1e-5
             dof_vel = -5e-4
             dof_acc = -1e-7
-            collision = -2000.
+            collision = -1.
 
     class normalization:
         class obs_scales:
-            lin_vel = 2.
+            lin_vel = 1.
             ang_vel = 1.
             dof_pos = 1.
-            dof_vel = 0.05
+            dof_vel = 1.
             quat = 1.
             height_measurements = 5.0
         clip_observations = 18.
         clip_actions = 18.
 
-
-class Kuavo42LeggedCfgPPO(LeggedRobotCfgPPO):
-    seed = 42
-    runner_class_name = 'OnPolicyRunner'   # DWLOnPolicyRunner
-
-    class policy:
-        init_noise_std = 1.0
-        actor_hidden_dims = [512, 256, 128]
-        critic_hidden_dims = [768, 256, 128]
-
-    class algorithm(LeggedRobotCfgPPO.algorithm):
-        entropy_coef = 0.001
-        learning_rate = 1e-5
-        num_learning_epochs = 2
-        gamma = 0.994
-        lam = 0.9
-        num_mini_batches = 4
-
-    class runner:
-        policy_class_name = 'ActorCritic'
-        algorithm_class_name = 'PPO'
-        num_steps_per_env = 60  # per iteration
-        max_iterations = 3001  # number of policy updates
-
-        # logging
-        save_interval = 100  # Please check for potential savings every `save_interval` iterations.
-        experiment_name = 'Kuavo42_legged_ppo'
-        run_name = ''
-        # Load and resume
-        resume = False
-        load_run = -1  # -1 = last run
-        checkpoint = -1  # -1 = last saved model
-        resume_path = None  # updated from load_run and chkpt
-
-class Kuavo42LeggedHighPDCfg(Kuavo42LeggedCfg):
-    class control(Kuavo42LeggedCfg.control):
-        # PD Drive parameters:
-        stiffness, damping = {}, {}
-        for lr in ['l', 'r']:
-            for idx, value in zip(range(1, 7), [120.0, 120.0, 120.0, 120.0, 30.0, 30.0]):
-                stiffness[f'leg_{lr}{idx}_joint'] = value
-        for lr in ['l', 'r']:
-            for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
-                damping[f'leg_{lr}{idx}_joint'] = value
-
-class Kuavo42LeggedHighPDCfgPPO(Kuavo42LeggedCfgPPO):
-    class runner(Kuavo42LeggedCfgPPO.runner):
-        experiment_name = 'Kuavo42_legged_high_pd_ppo'
+    class convert:
+        joint_cvt_idx = [
+            # leg_l1_joint ~ leg_l6_joint
+            0, 2, 4, 6, 8, 10,
+            # leg_r1_joint ~ leg_r6_joint
+            1, 3, 5, 7, 9, 11,
+        ]

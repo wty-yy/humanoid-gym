@@ -349,6 +349,7 @@ class LeggedRobot(BaseTask):
         """
         # pd controller
         actions_scaled = actions * self.cfg.control.action_scale
+        # print(f"[DEBUG]: {actions_scaled=}")
         p_gains = self.p_gains
         d_gains = self.d_gains
         torques = p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos) - d_gains * self.dof_vel

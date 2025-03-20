@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-FileCopyrightText: Copyright (c) 2021 ETH Zurich, Nikita Rudin
 # SPDX-License-Identifier: BSD-3-Clause
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -34,16 +34,18 @@ import cv2
 import numpy as np
 from isaacgym import gymapi
 from humanoid import LEGGED_GYM_ROOT_DIR
+import copy
 
 # import isaacgym
 from humanoid.envs import *
-from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
-from humanoid.utils.logger_legged_info import Logger as LoggerLeggedInfo
+from humanoid.utils import get_args, export_policy_as_jit, task_registry, Logger
+from humanoid.utils.helpers import get_load_path
 from isaacgym.torch_utils import *
 
 import torch
 from tqdm import tqdm
 from datetime import datetime
+import onnxruntime as ort
 
 import pygame
 from threading import Thread
@@ -91,14 +93,13 @@ def play(args):
     env_cfg.terrain.mesh_type = 'plane'
     env_cfg.terrain.num_rows = 5
     env_cfg.terrain.num_cols = 5
-    env_cfg.terrain.curriculum = False     
+    env_cfg.terrain.curriculum = False
     env_cfg.terrain.max_init_terrain_level = 5
-    env_cfg.noise.add_noise = True
-    env_cfg.domain_rand.push_robots = False 
+    env_cfg.noise.add_noise = False
+    # env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
     env_cfg.noise.noise_level = 0.5
-
 
     train_cfg.seed = 123145
     print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
@@ -110,41 +111,37 @@ def play(args):
     obs = env.get_observations()
 
     # load policy
-    train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-    policy = ppo_runner.get_inference_policy(device=env.device)
-    
-    # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY:
-        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
-        print('Exported policy as jit script to: ', path)
+    session = ort.InferenceSession(
+        # os.path.join(LEGGED_GYM_ROOT_DIR, 'models/Isaaclab/v2_20250319_lowpd.onnx'))
+        os.path.join(LEGGED_GYM_ROOT_DIR, 'models/leju_official/42_model_skw_0115_p120.onnx'))
+    input_name = session.get_inputs()[0].name
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
-    logger_legged_info = LoggerLeggedInfo(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
-    robot_index = 0 # which robot is used for logging
-    joint_index = 1 # which joint is used for logging
-    stop_state_log = 1200 # number of steps before plotting states
+    robot_index = 0  # which robot is used for logging
+    joint_index = 1  # which joint is used for logging
+    stop_state_log = 1000  # number of steps before plotting states
     if RENDER:
         camera_properties = gymapi.CameraProperties()
         camera_properties.width = 1920
         camera_properties.height = 1080
         h1 = env.gym.create_camera_sensor(env.envs[0], camera_properties)
         camera_offset = gymapi.Vec3(1, -1, 0.5)
-        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1),
-                                                    np.deg2rad(135))
+        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1), np.deg2rad(135))
         actor_handle = env.gym.get_actor_handle(env.envs[0], 0)
         body_handle = env.gym.get_actor_rigid_body_handle(env.envs[0], actor_handle, 0)
         env.gym.attach_camera_to_body(
             h1, env.envs[0], body_handle,
             gymapi.Transform(camera_offset, camera_rotation),
-            gymapi.FOLLOW_POSITION)
+            gymapi.FOLLOW_POSITION
+        )
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
         experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
-        dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
-        print(dir)
+        dir = os.path.join(
+            experiment_dir,
+            datetime.now().strftime('%b%d_%H-%M-%S') + args.run_name + '.mp4'
+        )
         if not os.path.exists(video_dir):
             os.mkdir(video_dir)
         if not os.path.exists(experiment_dir):
@@ -155,10 +152,11 @@ def play(args):
     try:
         while 1:
 
-            actions = policy(obs.detach()).detach() # * 0.
-            
+            actions = torch.tensor(session.run(None, {input_name: obs.detach().cpu().numpy()})[0]).to(
+                env.device)
+
             if FIX_COMMAND:
-                env.commands[:, 0] = 0.6
+                env.commands[:, 0] = 1.
                 env.commands[:, 1] = 0.
                 env.commands[:, 2] = 0.
                 env.commands[:, 3] = 0.
@@ -171,7 +169,7 @@ def play(args):
                 
                 
 
-            obs, critic_obs, rews, dones, infos = env.step(actions)
+            obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
             if RENDER:
                 env.gym.fetch_results(env.sim, True)
@@ -198,30 +196,19 @@ def play(args):
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
                 }
                 )
-            logger_legged_info.log_states({
-                'dof_pos_target': actions[robot_index, :].cpu().numpy() * env.cfg.control.action_scale,
-                'dof_pos': env.dof_pos[robot_index, :].cpu().numpy(),
-                'dof_pos_ref': env.ref_dof_pos[robot_index, :].detach().cpu().numpy(),
-                'command_x': env.commands[robot_index, 0].item(),
-                'command_y': env.commands[robot_index, 1].item(),
-                'command_yaw': env.commands[robot_index, 2].item(),
-                'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
-                'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
-                'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
-            })
             # ====================== Log states ======================
             if infos["episode"]:
                 num_episodes = torch.sum(env.reset_buf).item()
-                if num_episodes>0:
+                if num_episodes > 0:
                     logger.log_rewards(infos["episode"], num_episodes)
     except KeyboardInterrupt:
         pass
     # logger.print_rewards()
     logger.plot()
-    logger_legged_info.plot()
 
     if RENDER:
         video.release()
+
 
 if __name__ == '__main__':
     EXPORT_POLICY = False

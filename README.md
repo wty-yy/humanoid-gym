@@ -78,6 +78,18 @@ xbotl_simple_reward_v2: 加入1个保持base高度的奖励，高度保持为0.7
 ### 修改pd系数
 训练kuavo42_legged 1.5h完全无法站住，因此修改PD系数，加入新环境`kuavo42_legged_high_pd_ppo`，有更高的x2后的pd系数
 
+## 2025.3.19.
+### kuavo42_legged_s2s v2 low pd
+1. 将`kuavo42_legged_s2s`配置修改为低pd系数值，加入20250319 isaacsim训练的`models/Isaaclab/v2_20250319_lowpd.onnx`
+2. 将`terrain.static_friction`和`terrain.dynamic_friction`从`0.6->1.0`，和isaacsim对应
+3. isaaclab2isaacgym迁移基本成功，但单脚跳仍严重，步态奖励还需继续改进
+### kuavo42_legged v2
+ghw在isaacsim中可以使用低pd系数训练出可运动的机器人，因此继续调低pd系数下是否可以训练出
+1. 发现可能是`collision`奖励系数过低且`dt`过低导致终止`rewards.scales.collision: -1 -> -2000`
+2. 将`terrain.static_friction`和`terrain.dynamic_friction`从`0.6->1.0`
+3. 将`asset.terminate_after_contacts_on`, `asset.penalize_contacts_on`加入除去脚的所有的关节
+
+
 ## 2025.3.20.
 1. 加入`kuavo42_legged_simple_reward_ppo`环境，使用4个简易奖励函数在kuavo42上进行训练，训练出来的模型能稳定站住，但学不会抬脚
 

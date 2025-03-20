@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-FileCopyrightText: Copyright (c) 2021 ETH Zurich, Nikita Rudin
 # SPDX-License-Identifier: BSD-3-Clause
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -58,3 +58,7 @@ task_registry.register("kuavo42_legged_high_pd_ppo", Kuavo42LeggedEnv, Kuavo42Le
 from .custom.kuavo42_legged_simple_reward_config import Kuavo42LeggedSimpleRewardCfg, Kuavo42LeggedSimpleRewardCfgPPO
 from .custom.kuavo42_legged_simple_reward_env import Kuavo42LeggedSimpleRewardEnv
 task_registry.register("kuavo42_legged_simple_reward_ppo", Kuavo42LeggedSimpleRewardEnv, Kuavo42LeggedSimpleRewardCfg(), Kuavo42LeggedSimpleRewardCfgPPO())
+
+from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg
+from .custom.kuavo42_legged_s2s_env import Kuavo42Leggeds2sEnv
+task_registry.register("kuavo42_legged_s2s_ppo", Kuavo42Leggeds2sEnv, Kuavo42Leggeds2sCfg(), Kuavo42LeggedCfgPPO())
