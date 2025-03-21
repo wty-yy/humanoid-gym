@@ -164,7 +164,7 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
     return env_cfg, cfg_train
 
 
-def get_args():
+def get_args(extra_parameters: list=None):
     custom_parameters = [
         {
             "name": "--task",
@@ -232,6 +232,8 @@ def get_args():
             "help": "Maximum number of training iterations. Overrides config file if provided.",
         },
     ]
+    if extra_parameters is not None:
+        custom_parameters.extend(extra_parameters)
     # parse arguments
     args = gymutil.parse_arguments(
         description="RL Policy", custom_parameters=custom_parameters

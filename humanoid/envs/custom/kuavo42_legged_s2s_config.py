@@ -199,3 +199,8 @@ class Kuavo42Leggeds2sCfg(LeggedRobotCfg):
             # leg_r1_joint ~ leg_r6_joint
             1, 3, 5, 7, 9, 11,
         ]
+
+from humanoid.envs.custom.kuavo42_legged_config import Kuavo42LeggedCfgPPO
+class Kuavo42Leggeds2sCfgPPO(Kuavo42LeggedCfgPPO):
+    class runner(Kuavo42LeggedCfgPPO.runner):
+        experiment_name = "Kuavo42_legged_s2s"

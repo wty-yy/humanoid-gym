@@ -192,7 +192,6 @@ class Kuavo42Leggeds2sEnv(LeggedRobot):
             self._convert_joint_idx(self.dof_vel, True),
             self._convert_joint_idx(self.actions, True),
         ), dim=-1)
-        print(f"{self.command_input=}")
 
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights,

@@ -1,33 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-FileCopyrightText: Copyright (c) 2021 ETH Zurich, Nikita Rudin
-# SPDX-License-Identifier: BSD-3-Clause
-# 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
+"""
+Load last pt model params:
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v4
+Load onnx model:
+python humanoid/scripts/play.py --onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run_name v1
+"""
 
 import os
 import cv2
@@ -110,12 +86,20 @@ def play(args):
     obs = env.get_observations()
 
     # load policy
-    train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-    policy = ppo_runner.get_inference_policy(device=env.device)
+    if args.onnx is None:
+        train_cfg.runner.resume = True
+        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+        policy = ppo_runner.get_inference_policy(device=env.device)
+    else:
+        import onnxruntime as ort
+        session = ort.InferenceSession(args.onnx)
+        input_name = session.get_inputs()[0].name
+        policy = lambda x: torch.tensor(session.run(
+            None, {input_name: x.detach().cpu().numpy()}
+        )[0]).to(env.device)
     
     # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY:
+    if EXPORT_POLICY and args.onnx is None:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
@@ -182,26 +166,25 @@ def play(args):
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                 video.write(img[..., :3])
 
-            logger.log_states(
-                {
-                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
-                    'dof_pos': env.dof_pos[robot_index, joint_index].item(),
-                    'dof_vel': env.dof_vel[robot_index, joint_index].item(),
-                    'dof_torque': env.torques[robot_index, joint_index].item(),
-                    'command_x': env.commands[robot_index, 0].item(),
-                    'command_y': env.commands[robot_index, 1].item(),
-                    'command_yaw': env.commands[robot_index, 2].item(),
-                    'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
-                    'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
-                    'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
-                    'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
-                    'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
-                }
-                )
+            logger.log_states({
+                'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                'dof_pos': env.dof_pos[robot_index, joint_index].item(),
+                'dof_vel': env.dof_vel[robot_index, joint_index].item(),
+                'dof_torque': env.torques[robot_index, joint_index].item(),
+                'command_x': env.commands[robot_index, 0].item(),
+                'command_y': env.commands[robot_index, 1].item(),
+                'command_yaw': env.commands[robot_index, 2].item(),
+                'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
+                'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
+                'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
+                'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+                'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
+            })
             logger_legged_info.log_states({
-                'dof_pos_target': actions[robot_index, :].cpu().numpy() * env.cfg.control.action_scale,
+                'dof_pos_target': actions[robot_index, :].cpu().numpy() * env.cfg.control.action_scale + env.default_dof_pos[0].cpu().numpy(),
                 'dof_pos': env.dof_pos[robot_index, :].cpu().numpy(),
                 'dof_pos_ref': env.ref_dof_pos[robot_index, :].detach().cpu().numpy(),
+                'dof_torque': env.torques[robot_index, :].cpu().numpy(),
                 'command_x': env.commands[robot_index, 0].item(),
                 'command_y': env.commands[robot_index, 1].item(),
                 'command_yaw': env.commands[robot_index, 2].item(),
@@ -224,8 +207,15 @@ def play(args):
         video.release()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = False
+    EXPORT_POLICY = True
     RENDER = True
     FIX_COMMAND = True
-    args = get_args()
+    args = get_args(extra_parameters=[
+        {
+            "name": "--onnx",
+            "type": str,
+            "default": None,
+            "help": "Onnx model actor model path",
+        }
+    ])
     play(args)

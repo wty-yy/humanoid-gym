@@ -156,7 +156,11 @@ class LeggedRobot(BaseTask):
     def check_termination(self):
         """ Check if environments need to be reset
         """
-        self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
+        if len(self.termination_contact_indices):
+            self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
+            print(f"contact_forces: {self.contact_forces[:, self.termination_contact_indices, :]}\n termination_indices: {self.termination_contact_indices}")
+        else:
+            self.reset_buf = (self.root_states[:, 2] - torch.min(self.rigid_state[:, self.feet_indices, 2], dim=1)[0]) < self.cfg.asset.terminate_base_height 
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
 

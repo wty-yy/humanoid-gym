@@ -1,3 +1,4 @@
+import numpy as np
 from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
@@ -32,21 +33,10 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         foot_names = ['leg_l6_link', 'leg_r6_link']
         knee_names = ['leg_l4_link', 'leg_r4_link']
 
-        terminate_after_contacts_on = [
-            'base_link',
-            'leg_r1_link', 'leg_l1_link',
-            'leg_r2_link', 'leg_l2_link',
-            'leg_r3_link', 'leg_l3_link',
-            'leg_r4_link', 'leg_l4_link',
-            'leg_r5_link', 'leg_l5_link',
-        ]
+        terminate_after_contacts_on = []
+        terminate_base_height = 0.3
         penalize_contacts_on = [
-            "base_link",
-            'leg_r1_link', 'leg_l1_link',
-            'leg_r2_link', 'leg_l2_link',
-            'leg_r3_link', 'leg_l3_link',
-            'leg_r4_link', 'leg_l4_link',
-            'leg_r5_link', 'leg_l5_link',
+            "base_link"
         ]
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
@@ -101,7 +91,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
                 damping[f'leg_{lr}{idx}_joint'] = value
 
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.5
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 10  # 100hz
 
@@ -155,9 +145,10 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
         # target_joint_pos_scale = 0.24    # rad
-        target_joints_delta = [-0.2, 0.3, -0.1]  # leg, knee, foot
-        target_feet_height = 0.12        # m
-        cycle_time = 0.97                # sec
+        # target_joints_delta = [-0.2, 0.3, -0.1]  # leg, knee, foot
+        target_joints_delta = [-0.3, 0.6, -0.3]  # leg, knee, foot
+        target_feet_height = 0.06        # m
+        cycle_time = 1.20                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
@@ -192,7 +183,8 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             torques = -1e-5
             dof_vel = -5e-4
             dof_acc = -1e-7
-            collision = -2000.
+            collision = 0.0
+            termination = -200.
 
     class normalization:
         class obs_scales:

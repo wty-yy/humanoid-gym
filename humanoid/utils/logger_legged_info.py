@@ -73,7 +73,7 @@ class Logger:
         self.plot_process.start()
 
     def plot(self):
-        nb_rows = 3
+        nb_rows = 5
         nb_cols = 3
         fig, axs = plt.subplots(nb_rows, nb_cols, figsize=(25, 15))
         for key, value in self.state_log.items():
@@ -88,13 +88,21 @@ class Logger:
             ax.plot(time, np.stack(log['dof_pos_ref'], axis=0)[:, i+2], label='ref')
             ax.set(xlabel='time [s]', ylabel='Position [rad]', title=f'{name} Position')
             ax.legend()
-        for i, name in enumerate(['leg_r3_joint', 'leg_r4_joint', 'leg_r5_joint']):
+        for i, name in enumerate(['leg_l3_joint', 'leg_l4_joint', 'leg_l5_joint']):
             ax = axs[2, i]
+            ax.plot(time, np.stack(log['dof_torque'], axis=0)[:, i+2])
+            ax.set(xlabel='time [s]', ylabel='Torque [N/m]', title=f'{name} Torque')
+        for i, name in enumerate(['leg_r3_joint', 'leg_r4_joint', 'leg_r5_joint']):
+            ax = axs[3, i]
             ax.plot(time, np.stack(log['dof_pos'], axis=0)[:, i+8], label='measured')
             ax.plot(time, np.stack(log['dof_pos_target'], axis=0)[:, i+8], label='target')
             ax.plot(time, np.stack(log['dof_pos_ref'], axis=0)[:, i+8], label='ref')
             ax.set(xlabel='time [s]', ylabel='Position [rad]', title=f'{name} Position')
             ax.legend()
+        for i, name in enumerate(['leg_r3_joint', 'leg_r4_joint', 'leg_r5_joint']):
+            ax = axs[4, i]
+            ax.plot(time, np.stack(log['dof_torque'], axis=0)[:, i+8])
+            ax.set(xlabel='time [s]', ylabel='Torque [N/m]', title=f'{name} Torque')
         # plot base vel x
         a = axs[0, 0]
         if log["base_vel_x"]: a.plot(time, log["base_vel_x"], label='measured')

@@ -70,13 +70,13 @@ class Kuavo42LeggedEnv(LeggedRobot):
         # left foot stance phase set to default joint pos
         default_joint_angles_l = [
             self.cfg.init_state.default_joint_angles[key] for key in [
-                'leg_l2_joint', 'leg_l3_joint', 'leg_l4_joint']
+                'leg_l3_joint', 'leg_l4_joint', 'leg_l5_joint']
         ]
         for i in range(3):
             self.ref_dof_pos[:, 2+i] = torch.where(
                 sin_pos_l < 0,
-                default_joint_angles_l[i],
-                -sin_pos_l * joint_delta[i] + default_joint_angles_l[i]
+                -sin_pos_l * joint_delta[i] + self.default_dof_pos[0,2+i],
+                self.default_dof_pos[0,2+i]
             )
         # be careful, leju coordinate of the left and right feet is obtained by translation,
         # so we need sin_pos_l be positive: -sin_pos_l
@@ -84,16 +84,16 @@ class Kuavo42LeggedEnv(LeggedRobot):
         # right foot stance phase set to default joint pos
         default_joint_angles_r = [
             self.cfg.init_state.default_joint_angles[key] for key in [
-                'leg_r2_joint', 'leg_r3_joint', 'leg_r4_joint']
+                'leg_r3_joint', 'leg_r4_joint', 'leg_r5_joint']
         ]
         for i in range(3):
             self.ref_dof_pos[:, 8+i] = torch.where(
                 sin_pos_r >= 0,
-                default_joint_angles_r[i],
-                sin_pos_r * joint_delta[i] + default_joint_angles_r[i]
+                sin_pos_r * joint_delta[i] + self.default_dof_pos[0,8+i],
+                self.default_dof_pos[0,8+i]
             )
         # Double support phase
-        self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0
+        self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = self.default_dof_pos
 
         self.ref_action = 2 * self.ref_dof_pos
 
@@ -494,3 +494,9 @@ class Kuavo42LeggedEnv(LeggedRobot):
             self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
         term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
         return term_1 + term_2 + term_3
+    
+    def _reward_termination(self):
+        """ Reward when termination by `terminate_after_contacts_on` or `terminate_base_height`
+        """
+        return (self.reset_buf ^ self.time_out_buf).float()
+        
