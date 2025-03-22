@@ -2,7 +2,11 @@
 Load last pt model params:
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v4
 Load onnx model:
-python humanoid/scripts/play.py --onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run_name v1
+python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run_name v1
+Load torch.jit model:
+python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run_name v1
+Use joystick to control:
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8 --fix-command 0
 """
 
 import os
@@ -86,20 +90,22 @@ def play(args):
     obs = env.get_observations()
 
     # load policy
-    if args.onnx is None:
-        train_cfg.runner.resume = True
-        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-        policy = ppo_runner.get_inference_policy(device=env.device)
-    else:
+    if args.load_onnx is not None:
         import onnxruntime as ort
-        session = ort.InferenceSession(args.onnx)
+        session = ort.InferenceSession(args.load_onnx)
         input_name = session.get_inputs()[0].name
         policy = lambda x: torch.tensor(session.run(
             None, {input_name: x.detach().cpu().numpy()}
         )[0]).to(env.device)
+    elif args.load_jit is not None:
+        policy = torch.jit.load(args.load_jit, map_location=env.device)
+    else:
+        train_cfg.runner.resume = True
+        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+        policy = ppo_runner.get_inference_policy(device=env.device)
     
     # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY and args.onnx is None:
+    if EXPORT_POLICY and args.load_onnx is None and args.load_jit is None:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
@@ -126,7 +132,7 @@ def play(args):
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
-        experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name)
+        experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name, args.run_name)
         dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
         print(dir)
         if not os.path.exists(video_dir):
@@ -141,16 +147,18 @@ def play(args):
 
             actions = policy(obs.detach()).detach() # * 0.
             
-            if FIX_COMMAND:
-                env.commands[:, 0] = 0.6
+            if args.fix_command:
+                env.commands[:, 0] = 0.
                 env.commands[:, 1] = 0.
-                env.commands[:, 2] = 0.
+                env.commands[:, 2] = 0.5
                 env.commands[:, 3] = 0.
             else:
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = 0.
                 env.commands[:, 3] = yaw_vel_cmd
+            
+            print(f"[DEBUG]: command={env.commands}")
             
                 
                 
@@ -166,20 +174,6 @@ def play(args):
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                 video.write(img[..., :3])
 
-            logger.log_states({
-                'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
-                'dof_pos': env.dof_pos[robot_index, joint_index].item(),
-                'dof_vel': env.dof_vel[robot_index, joint_index].item(),
-                'dof_torque': env.torques[robot_index, joint_index].item(),
-                'command_x': env.commands[robot_index, 0].item(),
-                'command_y': env.commands[robot_index, 1].item(),
-                'command_yaw': env.commands[robot_index, 2].item(),
-                'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
-                'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
-                'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
-                'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
-                'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
-            })
             logger_legged_info.log_states({
                 'dof_pos_target': actions[robot_index, :].cpu().numpy() * env.cfg.control.action_scale + env.default_dof_pos[0].cpu().numpy(),
                 'dof_pos': env.dof_pos[robot_index, :].cpu().numpy(),
@@ -191,6 +185,7 @@ def play(args):
                 'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
                 'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
                 'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+                'feet_height': env.feet_height[robot_index].cpu().numpy()
             })
             # ====================== Log states ======================
             if infos["episode"]:
@@ -199,8 +194,6 @@ def play(args):
                     logger.log_rewards(infos["episode"], num_episodes)
     except KeyboardInterrupt:
         pass
-    # logger.print_rewards()
-    logger.plot()
     logger_legged_info.plot()
 
     if RENDER:
@@ -209,13 +202,24 @@ def play(args):
 if __name__ == '__main__':
     EXPORT_POLICY = True
     RENDER = True
-    FIX_COMMAND = True
     args = get_args(extra_parameters=[
         {
-            "name": "--onnx",
+            "name": "--load-onnx",
             "type": str,
             "default": None,
-            "help": "Onnx model actor model path",
+            "help": "Path of onnx model actor model",
+        },
+        {
+            "name": "--load-jit",
+            "type": str,
+            "default": None,
+            "help": "Path of torch.jit model actor model",
+        },
+        {
+            "name": "--fix-command",
+            "type": lambda x: x in ['1', 'true', 'True'],
+            "default": True,
+            "help": "Use fix command or joystick command input",
         }
     ])
     play(args)

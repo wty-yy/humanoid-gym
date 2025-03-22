@@ -40,7 +40,7 @@ from humanoid import LEGGED_GYM_ROOT_DIR
 
 class Logger:
     def __init__(self, dt, experiment_name, run_name, plot_period):
-        figure_dir = Path(LEGGED_GYM_ROOT_DIR) / 'figures' / experiment_name
+        figure_dir = Path(LEGGED_GYM_ROOT_DIR) / 'figures' / experiment_name / run_name
         figure_dir.mkdir(exist_ok=True, parents=True)
         self.path_figure = figure_dir / (time.strftime('%b%d_%H-%M-%S') + run_name + "legged_info" + '.png')
         self.state_log = defaultdict(list)
@@ -74,7 +74,7 @@ class Logger:
 
     def plot(self):
         nb_rows = 5
-        nb_cols = 3
+        nb_cols = 4
         fig, axs = plt.subplots(nb_rows, nb_cols, figsize=(25, 15))
         for key, value in self.state_log.items():
             time = np.linspace(0, len(value)*self.dt, len(value))
@@ -120,6 +120,12 @@ class Logger:
         if log["base_vel_yaw"]: a.plot(time, log["base_vel_yaw"], label='measured')
         if log["command_yaw"]: a.plot(time, log["command_yaw"], label='commanded')
         a.set(xlabel='time [s]', ylabel='base ang vel [rad/s]', title='Base velocity yaw')
+        a.legend()
+        # plot feet height
+        a = axs[0, 3]
+        a.plot(time, np.stack(log["feet_height"])[:, 0], label='left')
+        a.plot(time, np.stack(log["feet_height"])[:, 1], label='right')
+        a.set(xlabel='time [s]', ylabel='height [m]', title='Feet height')
         a.legend()
         fig.tight_layout()
         plt.savefig(self.path_figure, dpi=100)

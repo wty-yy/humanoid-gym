@@ -148,7 +148,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         # target_joints_delta = [-0.2, 0.3, -0.1]  # leg, knee, foot
         target_joints_delta = [-0.3, 0.6, -0.3]  # leg, knee, foot
         target_feet_height = 0.06        # m
-        cycle_time = 1.20                # sec
+        cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
@@ -168,7 +168,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             # contact
             feet_contact_forces = -0.01
             # vel tracking
-            tracking_lin_vel = 1.2
+            tracking_lin_vel = 1.6
             tracking_ang_vel = 1.1
             vel_mismatch_exp = 0.5  # lin_z; ang x,y
             low_speed = 0.2
@@ -207,12 +207,20 @@ class Kuavo42LeggedCfgPPO(LeggedRobotCfgPPO):
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]
 
+    # class algorithm(LeggedRobotCfgPPO.algorithm):
+    #     entropy_coef = 0.001
+    #     learning_rate = 1e-5
+    #     num_learning_epochs = 2
+    #     gamma = 0.994
+    #     lam = 0.9
+    #     num_mini_batches = 4
+
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.001
-        learning_rate = 1e-5
-        num_learning_epochs = 2
-        gamma = 0.994
-        lam = 0.9
+        learning_rate = 1e-3
+        num_learning_epochs = 5
+        gamma = 0.99
+        lam = 0.95
         num_mini_batches = 4
 
     class runner:
