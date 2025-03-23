@@ -144,8 +144,6 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         min_dist = 0.25
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
-        # target_joint_pos_scale = 0.24    # rad
-        # target_joints_delta = [-0.2, 0.3, -0.1]  # leg, knee, foot
         target_joints_delta = [-0.3, 0.6, -0.3]  # leg, knee, foot
         target_feet_height = 0.06        # m
         cycle_time = 0.64                # sec
@@ -157,7 +155,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
 
         class scales:
             # reference motion tracking
-            joint_pos = 1.6
+            joint_pos = 3.2
             feet_clearance = 1.
             feet_contact_number = 1.2
             # gait

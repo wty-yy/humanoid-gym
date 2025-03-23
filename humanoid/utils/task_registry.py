@@ -154,9 +154,9 @@ class TaskRegistry():
         resume = train_cfg.runner.resume
         if resume:
             # load previously trained model
-            resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
-            print(f"Loading model from: {resume_path}")
-            runner.load(resume_path, load_optimizer=False)
+            self.resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint, run_name=train_cfg.runner.run_name)
+            print(f"Loading model from: {self.resume_path}")
+            runner.load(self.resume_path, load_optimizer=False)
         return runner, train_cfg
 
 # make global task registry

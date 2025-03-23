@@ -6,12 +6,19 @@ python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.on
 Load torch.jit model:
 python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run_name v1
 Use joystick to control:
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8 --fix-command 0
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8 --fix-command 0 --cycle-time 1.2
+v8.1
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8.1 --fix-command 0 --cycle-time 0.9
+v8.2
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8.2 --fix-command 1 --cycle-time 0.64
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx \
+    --fix-command 1 --cycle-time 0.64 --run_name v8.2
 """
 
 import os
 import cv2
 import numpy as np
+from pathlib import Path
 from isaacgym import gymapi
 from humanoid import LEGGED_GYM_ROOT_DIR
 
@@ -30,6 +37,7 @@ from threading import Thread
 
 
 x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
+zero_yaw_vel_cmd = None
 joystick_use = True
 joystick_opened = False
 
@@ -46,16 +54,16 @@ if joystick_use:
     exit_flag = False
 
     def handle_joystick_input():
-        global exit_flag, x_vel_cmd, y_vel_cmd, yaw_vel_cmd, head_vel_cmd
-        
+        global exit_flag, x_vel_cmd, y_vel_cmd, yaw_vel_cmd, zero_yaw_vel_cmd
         
         while not exit_flag:
             # get joystick input
             pygame.event.get()
             # update robot command
             x_vel_cmd = -joystick.get_axis(1) * 1
-            y_vel_cmd = -joystick.get_axis(0) * 1
-            yaw_vel_cmd = -joystick.get_axis(3) * 1
+            x_vel_cmd = np.clip(x_vel_cmd, -0.5, 1.0)
+            y_vel_cmd = -joystick.get_axis(0) * 0.3
+            yaw_vel_cmd = -joystick.get_axis(3) * 0.5
             pygame.time.delay(100)
 
     if joystick_opened and joystick_use:
@@ -78,6 +86,7 @@ def play(args):
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
     env_cfg.noise.noise_level = 0.5
+    env_cfg.rewards.cycle_time = args.cycle_time
 
 
     train_cfg.seed = 123145
@@ -97,18 +106,30 @@ def play(args):
         policy = lambda x: torch.tensor(session.run(
             None, {input_name: x.detach().cpu().numpy()}
         )[0]).to(env.device)
+        load_file_stem = Path(args.load_onnx).stem
     elif args.load_jit is not None:
         policy = torch.jit.load(args.load_jit, map_location=env.device)
+        load_file_stem = Path(args.load_jit).stem
     else:
         train_cfg.runner.resume = True
         ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
         policy = ppo_runner.get_inference_policy(device=env.device)
+        load_file_stem = Path(task_registry.resume_path).stem
     
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY and args.load_onnx is None and args.load_jit is None:
+        export_file_stem = f"{train_cfg.runner.experiment_name}_{args.run_name}_{load_file_stem}"
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
+        export_policy_as_jit(ppo_runner.alg.actor_critic, path, f"{export_file_stem}.pt")
         print('Exported policy as jit script to: ', path)
+
+        torch.onnx.export(
+            ppo_runner.alg.actor_critic.actor,
+            torch.randn(1, env_cfg.env.num_observations, device=env.device),
+            os.path.join(path, f"{export_file_stem}.onnx"),
+        )
+        print('Exported onnx to: ', path)
+
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     logger_legged_info = LoggerLeggedInfo(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
@@ -148,17 +169,17 @@ def play(args):
             actions = policy(obs.detach()).detach() # * 0.
             
             if args.fix_command:
-                env.commands[:, 0] = 0.
+                env.commands[:, 0] = 0.0
                 env.commands[:, 1] = 0.
-                env.commands[:, 2] = 0.5
+                env.commands[:, 2] = 0.3
                 env.commands[:, 3] = 0.
             else:
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
-                env.commands[:, 2] = 0.
-                env.commands[:, 3] = yaw_vel_cmd
+                env.commands[:, 2] = yaw_vel_cmd
+                env.commands[:, 3] = 0.
             
-            print(f"[DEBUG]: command={env.commands}")
+            # print(f"[DEBUG]: command={env.commands}")
             
                 
                 
@@ -220,6 +241,12 @@ if __name__ == '__main__':
             "type": lambda x: x in ['1', 'true', 'True'],
             "default": True,
             "help": "Use fix command or joystick command input",
+        },
+        {
+            "name": "--cycle-time",
+            "type": float,
+            "default": 1.2,
+            "help": "Cycle time in cfg.rewards.cycle_time",
         }
     ])
     play(args)

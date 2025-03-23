@@ -107,12 +107,12 @@ def parse_sim_params(args, cfg):
     return sim_params
 
 
-def get_load_path(root, load_run=-1, checkpoint=-1):
+def get_load_path(root, load_run=-1, checkpoint=-1, run_name=''):
     def month_to_number(month):
         return datetime.datetime.strptime(month, "%b").month
 
     try:
-        runs = os.listdir(root)
+        runs = [x for x in os.listdir(root) if x.endswith(run_name)]
         try:
             runs.sort(key=lambda x: (month_to_number(x[:3]), int(x[3:5]), x[6:]))
         except ValueError as e:
@@ -247,9 +247,10 @@ def get_args(extra_parameters: list=None):
     return args
 
 
-def export_policy_as_jit(actor_critic, path):
+def export_policy_as_jit(actor_critic, path, filename=None):
     os.makedirs(path, exist_ok=True)
-    path = os.path.join(path, "policy_1.pt")
+    if filename is None: filename = "policy_1.pt"
+    path = os.path.join(path, filename)
     model = copy.deepcopy(actor_critic.actor).to("cpu")
     traced_script_module = torch.jit.script(model)
     traced_script_module.save(path)
