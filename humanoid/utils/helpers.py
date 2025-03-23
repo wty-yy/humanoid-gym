@@ -179,17 +179,17 @@ def get_args(extra_parameters: list=None):
             "help": "Resume training from a checkpoint",
         },
         {
-            "name": "--experiment_name",
+            "name": "--experiment-name",
             "type": str,
             "help": "Name of the experiment to run or load. Overrides config file if provided.",
         },
         {
-            "name": "--run_name",
+            "name": "--run-name",
             "type": str,
             "help": "Name of the run. Overrides config file if provided.",
         },
         {
-            "name": "--load_run",
+            "name": "--load-run",
             "type": str,
             "help": "Name of the run to load when resume=True. If -1: will load the last run. Overrides config file if provided.",
         },
@@ -211,13 +211,13 @@ def get_args(extra_parameters: list=None):
             "help": "Use horovod for multi-gpu training",
         },
         {
-            "name": "--rl_device",
+            "name": "--rl-device",
             "type": str,
             "default": "cuda:0",
             "help": "Device used by the RL algorithm, (cpu, gpu, cuda:0, cuda:1 etc..)",
         },
         {
-            "name": "--num_envs",
+            "name": "--num-envs",
             "type": int,
             "help": "Number of environments to create. Overrides config file if provided.",
         },
@@ -227,7 +227,7 @@ def get_args(extra_parameters: list=None):
             "help": "Random seed. Overrides config file if provided.",
         },
         {
-            "name": "--max_iterations",
+            "name": "--max-iterations",
             "type": int,
             "help": "Maximum number of training iterations. Overrides config file if provided.",
         },

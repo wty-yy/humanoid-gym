@@ -140,11 +140,11 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             heading = [-3.14, 3.14]
 
     class rewards:
-        base_height_target = 0.795
+        base_height_target = 0.85
         min_dist = 0.25
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
-        target_joints_delta = [-0.3, 0.6, -0.3]  # leg, knee, foot
+        target_joints_delta = [-0.25, 0.5, -0.25]  # leg, knee, foot
         target_feet_height = 0.06        # m
         cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)

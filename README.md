@@ -9,6 +9,31 @@
   - Clone本仓库，移动到固定位置
   - 安装`cd humanoid-gym && pip install -e .`
 
+# Run
+## Train
+```bash
+python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --headless
+# Add iterations (default 3001)
+python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --max-iterations 10001 --headless
+```
+## Play
+```bash
+# Load last pt model params:
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v4
+# Load onnx model:
+python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run-name v1
+# Load torch.jit model:
+python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run-name v1
+# Use joystick to control:
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8 --fix-command 0 --cycle-time 1.2
+# v8.1
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.1 --fix-command 0 --cycle-time 0.9
+# v8.2
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.2 --fix-command 1 --cycle-time 0.64
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx \
+    --fix-command 1 --cycle-time 0.64 --run-name v8.2
+```
+
 # 更新日志
 ## 2025.3.13.
 完成`xbotl_paper_ppo`的全部奖励设计，开始训练，将periodic_force系数下降`1.0->1e-3`
@@ -149,4 +174,4 @@ v9训练结果不好，没有学到抬脚，可能是奖励给的太小导致
 ### kuavo42_legged_v8.3
 - 提高`base_height_target: 0.795 -> 0.85`到正确高度上
 - 稍微降低`target_joints_delta: [-0.3, 0.6, 0.3] -> [-0.25, 0.5, -0.25]`
-- 尝试进行一次长时间训练`max_iterations: 3001 -> 10000`
+- 尝试进行一次长时间训练`max_iterations: 3001 -> 10001`，从CLI中添加

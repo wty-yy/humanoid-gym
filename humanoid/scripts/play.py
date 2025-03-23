@@ -1,20 +1,3 @@
-"""
-Load last pt model params:
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v4
-Load onnx model:
-python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run_name v1
-Load torch.jit model:
-python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run_name v1
-Use joystick to control:
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8 --fix-command 0 --cycle-time 1.2
-v8.1
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8.1 --fix-command 0 --cycle-time 0.9
-v8.2
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v8.2 --fix-command 1 --cycle-time 0.64
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx \
-    --fix-command 1 --cycle-time 0.64 --run_name v8.2
-"""
-
 import os
 import cv2
 import numpy as np
