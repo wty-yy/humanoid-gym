@@ -32,6 +32,8 @@ python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.1 --fix-
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.2 --fix-command 1 --cycle-time 0.64
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx \
     --fix-command 1 --cycle-time 0.64 --run-name v8.2
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
+    --fix-command 0 --cycle-time 0.64 --run-name v8.3
 ```
 
 # 更新日志
@@ -152,6 +154,8 @@ v5训练会导致迅速收腿中止，发现可能是因为错误的中止条件
 尝试修改ppo配置（参考isaacsim）
 - `learning_rate: 1e-5 -> 1e-3`
 - `num_learning_epochs: 2 -> 5`
+- `gamma: 0.994 -> 0.99`
+- `lambda: 0.9 -> 0.95`
 
 v8成功✌训练出抬脚，但是由于joint_pos奖励过大，对速度追踪不是很正确，而且抬脚周期过长
 
@@ -175,3 +179,6 @@ v9训练结果不好，没有学到抬脚，可能是奖励给的太小导致
 - 提高`base_height_target: 0.795 -> 0.85`到正确高度上
 - 稍微降低`target_joints_delta: [-0.3, 0.6, 0.3] -> [-0.25, 0.5, -0.25]`
 - 尝试进行一次长时间训练`max_iterations: 3001 -> 10001`，从CLI中添加
+
+## 2025.3.24.
+v8.3训练效果也不错，长时间训练已经收敛没出现崩溃的问题，除了抬腿会在空中滞空比较长的一段时间

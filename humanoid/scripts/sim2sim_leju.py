@@ -2,6 +2,8 @@
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/Isaaclab/v2_20250319_lowpd.onnx --version isaacsim
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8_model_3001.onnx \
   --cycle-time 1.2 --version legged_gym
+python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
+  --cycle-time 0.64 --version legged_gym
 """
 
 import math
@@ -17,7 +19,7 @@ import torch
 
 
 class cmd:
-  vx = 0.0
+  vx = 1.0
   vy = 0.0
   dyaw = 0.0
 
@@ -105,7 +107,7 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
         ], dtype=np.float32).reshape(1, -1)
       elif version == 'legged_gym':
         phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
-        print(cfg.rewards.cycle_time)
+        # print(cfg.rewards.cycle_time)
         eu_ang = quaternion_to_euler_array(quat)
         eu_ang[eu_ang > math.pi] -= 2 * math.pi
         tmp = np.concatenate([
