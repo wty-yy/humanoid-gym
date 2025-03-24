@@ -64,7 +64,7 @@ def play(args):
     env_cfg.terrain.num_cols = 5
     env_cfg.terrain.curriculum = False     
     env_cfg.terrain.max_init_terrain_level = 5
-    env_cfg.noise.add_noise = True
+    env_cfg.noise.add_noise = True  # If need noise
     env_cfg.domain_rand.push_robots = False 
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
@@ -149,12 +149,12 @@ def play(args):
     try:
         while 1:
 
-            actions = policy(obs.detach()).detach() # * 0.
+            actions = policy(obs.detach()).detach()
             
             if args.fix_command:
                 env.commands[:, 0] = 0.0
                 env.commands[:, 1] = 0.
-                env.commands[:, 2] = 0.3
+                env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
             else:
                 env.commands[:, 0] = x_vel_cmd

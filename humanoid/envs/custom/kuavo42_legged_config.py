@@ -251,3 +251,13 @@ class Kuavo42LeggedHighPDCfg(Kuavo42LeggedCfg):
 class Kuavo42LeggedHighPDCfgPPO(Kuavo42LeggedCfgPPO):
     class runner(Kuavo42LeggedCfgPPO.runner):
         experiment_name = 'Kuavo42_legged_high_pd_ppo'
+
+class Kuavo42LeggedSingleObsCfg(Kuavo42LeggedCfg):
+    class env(Kuavo42LeggedCfg.env):
+        frame_stack = 1
+        num_single_obs = 47
+        num_observations = int(frame_stack * num_single_obs)
+
+class Kuavo42LeggedSingleObsCfgPPO(Kuavo42LeggedCfgPPO):
+    class runner(Kuavo42LeggedCfgPPO.runner):
+        experiment_name = 'Kuavo42_legged_single_obs_ppo'

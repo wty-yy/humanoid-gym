@@ -60,7 +60,7 @@
         <light directional="true" pos="0 0 3" dir="0 0 -1" diffuse="0.2 0.2 0.2" specular="0 0 0"/>
 
         <!-- <body name="base_link" pos="0 0 0.82"> -->
-        <body name="base_link" pos="0 0 0.90">
+        <body name="base_link" pos="0 0 0.88">
             <freejoint/>
             <inertial pos="-0.0146307 0.00469612 0.162168" quat="1 0 0 0" mass="29.1592"
                       diaginertia="0.523209 0.422858 0.190433"/>

@@ -19,7 +19,7 @@ import torch
 
 
 class cmd:
-  vx = 1.0
+  vx = 0.0
   vy = 0.0
   dyaw = 0.0
 
@@ -127,19 +127,24 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
         obs_stack = np.concatenate([obs_stack[1:], tmp], axis=0)
         obs = obs_stack.reshape(1, -1)
 
+        obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
+        # np.save(f'./logs/debug_obs/tmp_obs_{count_lowlevel}.npy', obs)
+        # if count_lowlevel > 200: exit()
+
       # print(f"{v=},\n{omega=},\n{gvec=},\ncmd={[cmd.vx, cmd.vy, cmd.dyaw]},")
       # print(f"q={convert_joint_idx(q, True)},")
       # print(f"dq={convert_joint_idx(dq, True)},")
       # print(f"action={convert_joint_idx(action, True)}")
 
-      obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
-
       action[:] = policy(obs)[0]
       if version == 'isaacsim':
         action = convert_joint_idx(action, False)
       action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
+      # np.save(f'./logs/debug_action/tmp_action_{count_lowlevel}.npy', action)
 
       target_q = action * cfg.control.action_scale
+      if version == 'legged_gym':
+        target_q = target_q + default_joint_pos
 
 
     target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -148,6 +153,7 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
             target_dq, dq, cfg.robot_config.kds)  # Calc torques
     tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
     # tau = np.zeros_like(tau)
+    # np.save(f'./logs/debug_tau/tmp_tau_{count_lowlevel}.npy', tau)
     data.ctrl = tau
 
     mujoco.mj_step(model, data)

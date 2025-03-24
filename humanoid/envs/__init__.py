@@ -35,6 +35,7 @@ from .base.legged_robot import LeggedRobot
 
 from humanoid.utils.task_registry import task_registry
 
+########################## XBotL #####################################
 from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
 from .custom.humanoid_env import XBotLFreeEnv
 task_registry.register("humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
@@ -47,17 +48,20 @@ from .custom.xbotl_simple_reward_config import XBotSimpleRewardCfg, XBotLSimpleR
 from .custom.xbotl_simple_reward_env import XBotLSimpleRewardEnv
 task_registry.register("xbotl_simple_reward_ppo", XBotLSimpleRewardEnv, XBotSimpleRewardCfg(), XBotLSimpleRewardCfgPPO())
 
+######################### Kuavo42 ####################################
 from .custom.kuavo42_legged_config import Kuavo42LeggedCfg, Kuavo42LeggedCfgPPO
 from .custom.kuavo42_legged_env import Kuavo42LeggedEnv
 task_registry.register("kuavo42_legged_ppo", Kuavo42LeggedEnv, Kuavo42LeggedCfg(), Kuavo42LeggedCfgPPO())
 
 from .custom.kuavo42_legged_config import Kuavo42LeggedHighPDCfg, Kuavo42LeggedHighPDCfgPPO
-from .custom.kuavo42_legged_env import Kuavo42LeggedEnv
 task_registry.register("kuavo42_legged_high_pd_ppo", Kuavo42LeggedEnv, Kuavo42LeggedHighPDCfg(), Kuavo42LeggedHighPDCfgPPO())
 
 from .custom.kuavo42_legged_simple_reward_config import Kuavo42LeggedSimpleRewardCfg, Kuavo42LeggedSimpleRewardCfgPPO
 from .custom.kuavo42_legged_simple_reward_env import Kuavo42LeggedSimpleRewardEnv
 task_registry.register("kuavo42_legged_simple_reward_ppo", Kuavo42LeggedSimpleRewardEnv, Kuavo42LeggedSimpleRewardCfg(), Kuavo42LeggedSimpleRewardCfgPPO())
+
+from .custom.kuavo42_legged_config import Kuavo42LeggedSingleObsCfg, Kuavo42LeggedSingleObsCfgPPO
+task_registry.register("kuavo42_legged_single_obs_ppo", Kuavo42LeggedEnv, Kuavo42LeggedSingleObsCfg(), Kuavo42LeggedSingleObsCfgPPO())
 
 from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg, Kuavo42Leggeds2sCfgPPO
 from .custom.kuavo42_legged_s2s_env import Kuavo42Leggeds2sEnv
