@@ -196,8 +196,13 @@ v9训练结果不好，没有学到抬脚，可能是奖励给的太小导致
 
 ## 2025.3.25.
 1. 将训练完成的`kuavo42_legged_singe_obs`模型存入`models/kuavo42_legged`
+2. 在`*CfgPPO.runner`中加入wandb是否开启的可选项
+3. 在`play.py`的`Logger`中加入对cmd追踪的误差数值绘制
+4. 通过单独设计的`humanoid/utils/joystick.py`类将`play.py`中手柄输入的y轴指令范围与env_cfg文件对应
 ### Fixed Bugs
 1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
-### kuavo42_legged_single_obs_v1.1
-single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒
+### kuavo42_legged_single_obs
+#### v1.1 (Deprecate)
+single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒（后来发现是play的输入y轴指令过大导致，已修复）
 1. 加入`prob_high_lin_y_and_yaw=0.05`随机化概率，若触发，随机将`lin_y`和`yaw`同时拉满到最大或最小值
+训练完成后发现对速度的追踪效果还不如v1，因此弃用

@@ -105,21 +105,24 @@ class Logger:
             ax.set(xlabel='time [s]', ylabel='Torque [N/m]', title=f'{name} Torque')
         # plot base vel x
         a = axs[0, 0]
-        if log["base_vel_x"]: a.plot(time, log["base_vel_x"], label='measured')
-        if log["command_x"]: a.plot(time, log["command_x"], label='commanded')
-        a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title='Base velocity x')
+        if log['base_vel_x']: a.plot(time, log['base_vel_x'], label='measured')
+        if log['command_x']: a.plot(time, log['command_x'], label='commanded')
+        mean_error = np.mean(np.array(log['base_vel_x']) - np.array(log['command_x']))
+        a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title=f"Base velocity x, err={mean_error:.5f}")
         a.legend()
         # plot base vel y
         a = axs[0, 1]
         if log["base_vel_y"]: a.plot(time, log["base_vel_y"], label='measured')
         if log["command_y"]: a.plot(time, log["command_y"], label='commanded')
-        a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title='Base velocity y')
+        mean_error = np.mean(np.array(log['base_vel_y']) - np.array(log['command_y']))
+        a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title=f"Base velocity y, err={mean_error:.5f}")
         a.legend()
         # plot base vel yaw
         a = axs[0, 2]
         if log["base_vel_yaw"]: a.plot(time, log["base_vel_yaw"], label='measured')
         if log["command_yaw"]: a.plot(time, log["command_yaw"], label='commanded')
-        a.set(xlabel='time [s]', ylabel='base ang vel [rad/s]', title='Base velocity yaw')
+        mean_error = np.mean(np.array(log['base_vel_yaw']) - np.array(log['command_yaw']))
+        a.set(xlabel='time [s]', ylabel='base ang vel [rad/s]', title=f"Base velocity yaw, err={mean_error:.5f}")
         a.legend()
         # plot feet height
         a = axs[0, 3]

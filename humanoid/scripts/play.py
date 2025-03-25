@@ -9,48 +9,11 @@ from humanoid.envs import *
 from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
 from humanoid.utils.logger_legged_info import Logger as LoggerLeggedInfo
 from isaacgym.torch_utils import *
+from humanoid.utils.joystick import JoystickTwistCommand
 
 import torch
 from tqdm import tqdm
 from datetime import datetime
-
-import pygame
-from threading import Thread
-
-
-x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 0.0, 0.0, 0.0
-zero_yaw_vel_cmd = None
-joystick_use = True
-joystick_opened = False
-
-if joystick_use:
-    pygame.init()
-    try:
-        # get joystick
-        joystick = pygame.joystick.Joystick(0)
-        joystick.init()
-        joystick_opened = True
-    except Exception as e:
-        print(f"无法打开手柄：{e}")
-    # joystick thread exit flag
-    exit_flag = False
-
-    def handle_joystick_input():
-        global exit_flag, x_vel_cmd, y_vel_cmd, yaw_vel_cmd, zero_yaw_vel_cmd
-        
-        while not exit_flag:
-            # get joystick input
-            pygame.event.get()
-            # update robot command
-            x_vel_cmd = -joystick.get_axis(1) * 0.8
-            x_vel_cmd = np.clip(x_vel_cmd, -0.5, 0.8)
-            y_vel_cmd = -joystick.get_axis(0) * 0.3
-            yaw_vel_cmd = -joystick.get_axis(3) * 0.5
-            pygame.time.delay(100)
-
-    if joystick_opened and joystick_use:
-        joystick_thread = Thread(target=handle_joystick_input)
-        joystick_thread.start()
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -142,6 +105,9 @@ def play(args):
         Path(video_dir).mkdir(exist_ok=True, parents=True)
         Path(experiment_dir).mkdir(exist_ok=True, parents=True)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
+    
+    if not args.fix_command:
+        joystick_twist_command = JoystickTwistCommand(env_cfg)
 
     # for i in tqdm(range(stop_state_log)):
     try:
@@ -155,6 +121,7 @@ def play(args):
                 env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
             else:
+                x_vel_cmd, y_vel_cmd, yaw_vel_cmd = joystick_twist_command.get_twist_cmd()
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = yaw_vel_cmd

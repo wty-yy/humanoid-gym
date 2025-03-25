@@ -132,7 +132,6 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         num_commands = 4
         resampling_time = 8.  # time before command are changed[s]
         heading_command = False  # if true: compute ang vel command from heading error
-        prob_high_lin_y_and_yaw = 0.05  # prob for both high line y and yaw velocity
 
         class ranges:
             lin_vel_x = [-0.4, 1.0]   # min max [m/s]
@@ -237,6 +236,7 @@ class Kuavo42LeggedCfgPPO(LeggedRobotCfgPPO):
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
+        wandb = True
 
 class Kuavo42LeggedHighPDCfg(Kuavo42LeggedCfg):
     class control(Kuavo42LeggedCfg.control):
