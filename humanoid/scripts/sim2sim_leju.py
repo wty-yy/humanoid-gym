@@ -4,6 +4,8 @@ python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo4
   --cycle-time 1.2 --version legged_gym
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
   --cycle-time 0.64 --version legged_gym
+python humanoid/scripts/sim2sim_leju.py --load-onnx /home/yy/Coding/robotics/humanoid-gym/logs/Kuavo42_legged_single_obs_ppo/exported/policies/Kuavo42_legged_single_obs_ppo_v1_model_1600.onnx \
+  --cycle-time 0.64 --version legged_gym_single_obs
 """
 
 import math
@@ -13,7 +15,7 @@ from tqdm import tqdm
 from collections import deque
 from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
-from humanoid.envs import Kuavo42Leggeds2sCfg, Kuavo42LeggedCfg
+from humanoid.envs import Kuavo42Leggeds2sCfg, Kuavo42LeggedCfg, Kuavo42LeggedSingleObsCfg
 from humanoid.scripts.sim2sim import quaternion_to_euler_array
 import torch
 
@@ -77,7 +79,7 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
 
   count_lowlevel = 0
 
-  if version == 'legged_gym':
+  if 'legged_gym' in version:
     obs_stack = np.zeros([cfg.env.frame_stack, cfg.env.num_single_obs], np.float32)
 
     joint_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i) for i in range(model.njnt)][1:]  # first one is None
@@ -105,7 +107,7 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
           convert_joint_idx(dq, True),
           convert_joint_idx(action, True)
         ], dtype=np.float32).reshape(1, -1)
-      elif version == 'legged_gym':
+      elif 'legged_gym' in version:
         phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
         # print(cfg.rewards.cycle_time)
         eu_ang = quaternion_to_euler_array(quat)
@@ -143,7 +145,7 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
       # np.save(f'./logs/debug_action/tmp_action_{count_lowlevel}.npy', action)
 
       target_q = action * cfg.control.action_scale
-      if version == 'legged_gym':
+      if 'legged_gym' in version:
         target_q = target_q + default_joint_pos
 
 
@@ -179,6 +181,8 @@ if __name__ == '__main__':
     cfg_class = Kuavo42Leggeds2sCfg
   elif args.version == 'legged_gym':
     cfg_class = Kuavo42LeggedCfg
+  elif args.version == 'legged_gym_single_obs':
+    cfg_class = Kuavo42LeggedSingleObsCfg
   else:
     raise ValueError(f"Don't know version={args.version}")
 

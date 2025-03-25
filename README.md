@@ -15,6 +15,8 @@
 python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --headless
 # Add iterations (default 3001)
 python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --max-iterations 10001 --headless
+# kuavo42 legged single obs 
+python humanoid/scripts/train.py --task=kuavo42_legged_single_obs_ppo --run-name v1.1 --max-iterations 3001 --headless
 ```
 ## Play
 ```bash
@@ -24,17 +26,23 @@ python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run_name v4
 python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.onnx --task=kuavo42_legged_s2s_ppo --run-name v1
 # Load torch.jit model:
 python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run-name v1
+# kuavo42 legged ppo
 # Use joystick to control:
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8 --fix-command 0 --cycle-time 1.2
 # v8.1
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.1 --fix-command 0 --cycle-time 0.9
 # v8.2
 python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.2 --fix-command 1 --cycle-time 0.64
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx \
-    --fix-command 1 --cycle-time 0.64 --run-name v8.2
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
-    --fix-command 0 --cycle-time 0.64 --run-name v8.3
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx --fix-command 1 --cycle-time 0.64 --run-name v8.2
+# v8.3
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx --fix-command 0 --cycle-time 0.64 --run-name v8.3
+# kuavo42 legged ppo single obs
+# v1
+python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --fix-command 0 --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
 ```
+
+# Fixed Bugs
+1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
 
 # 更新日志
 ## 2025.3.13.
@@ -181,6 +189,15 @@ v9训练结果不好，没有学到抬脚，可能是奖励给的太小导致
 - 尝试进行一次长时间训练`max_iterations: 3001 -> 10001`，从CLI中添加
 
 ## 2025.3.24.
-v8.3训练效果也不错，长时间训练已经收敛没出现崩溃的问题，除了抬腿会在空中滞空比较长的一段时间
+1. v8.3训练效果也不错，长时间训练已经收敛没出现崩溃的问题，除了抬腿会在空中滞空比较长的一段时间
+2. 稍微调整play时的初始相机角度，调整
 ### kuavo42_legged_single_obs_v1
 加入`kuavo42_legged_single_obs`环境，仅修改`frame_stack: 15 -> 1`
+
+## 2025.3.25.
+1. 将训练完成的`kuavo42_legged_singe_obs`模型存入`models/kuavo42_legged`
+### Fixed Bugs
+1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
+### kuavo42_legged_single_obs_v1.1
+single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒
+1. 加入`prob_high_lin_y_and_yaw=0.05`随机化概率，若触发，随机将`lin_y`和`yaw`同时拉满到最大或最小值

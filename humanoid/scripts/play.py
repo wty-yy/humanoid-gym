@@ -5,7 +5,6 @@ from pathlib import Path
 from isaacgym import gymapi
 from humanoid import LEGGED_GYM_ROOT_DIR
 
-# import isaacgym
 from humanoid.envs import *
 from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
 from humanoid.utils.logger_legged_info import Logger as LoggerLeggedInfo
@@ -43,8 +42,8 @@ if joystick_use:
             # get joystick input
             pygame.event.get()
             # update robot command
-            x_vel_cmd = -joystick.get_axis(1) * 1
-            x_vel_cmd = np.clip(x_vel_cmd, -0.5, 1.0)
+            x_vel_cmd = -joystick.get_axis(1) * 0.8
+            x_vel_cmd = np.clip(x_vel_cmd, -0.5, 0.8)
             y_vel_cmd = -joystick.get_axis(0) * 0.3
             yaw_vel_cmd = -joystick.get_axis(3) * 0.5
             pygame.time.delay(100)
@@ -70,6 +69,9 @@ def play(args):
     env_cfg.noise.curriculum = False
     env_cfg.noise.noise_level = 0.5
     env_cfg.rewards.cycle_time = args.cycle_time
+    env_cfg.viewer.pos = [1, -2, 2]
+    env_cfg.viewer.lookat = [0, 1, 0]
+    env_cfg.env.episode_length_s = np.inf
 
 
     train_cfg.seed = 123145
@@ -117,8 +119,6 @@ def play(args):
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     logger_legged_info = LoggerLeggedInfo(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     robot_index = 0 # which robot is used for logging
-    joint_index = 1 # which joint is used for logging
-    stop_state_log = 1200 # number of steps before plotting states
     if RENDER:
         camera_properties = gymapi.CameraProperties()
         camera_properties.width = 1920
@@ -138,11 +138,9 @@ def play(args):
         video_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos')
         experiment_dir = os.path.join(LEGGED_GYM_ROOT_DIR, 'videos', train_cfg.runner.experiment_name, args.run_name)
         dir = os.path.join(experiment_dir, datetime.now().strftime('%b%d_%H-%M-%S')+ args.run_name + '.mp4')
-        print(dir)
-        if not os.path.exists(video_dir):
-            os.mkdir(video_dir)
-        if not os.path.exists(experiment_dir):
-            os.mkdir(experiment_dir)
+        print("Video save: ", dir)
+        Path(video_dir).mkdir(exist_ok=True, parents=True)
+        Path(experiment_dir).mkdir(exist_ok=True, parents=True)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
     # for i in tqdm(range(stop_state_log)):
@@ -161,11 +159,7 @@ def play(args):
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = yaw_vel_cmd
                 env.commands[:, 3] = 0.
-            
             # print(f"[DEBUG]: command={env.commands}")
-            
-                
-                
 
             obs, critic_obs, rews, dones, infos = env.step(actions)
 
@@ -204,8 +198,6 @@ def play(args):
         video.release()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = True
-    RENDER = True
     args = get_args(extra_parameters=[
         {
             "name": "--load-onnx",
@@ -230,6 +222,20 @@ if __name__ == '__main__':
             "type": float,
             "default": 1.2,
             "help": "Cycle time in cfg.rewards.cycle_time",
-        }
+        },
+        {
+            "name": "--render",
+            "type": lambda x: x in ['1', 'true', 'True'],
+            "default": True,
+            "help": "Save mp4 record video in `videos/[experiment_name]/[run_name]/[datetime].mp4`",
+        },
+        {
+            "name": "--export-policy",
+            "type": lambda x: x in ['1', 'true', 'True'],
+            "default": True,
+            "help": "If True, export pytorch actor network to onnx and pytorch.jit in `logs/[experiment_name]/exported/policies/[*.onnx | *.pt]`",
+        },
     ])
+    EXPORT_POLICY = args.export_policy
+    RENDER = args.render
     play(args)

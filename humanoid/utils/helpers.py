@@ -113,6 +113,7 @@ def get_load_path(root, load_run=-1, checkpoint=-1, run_name=''):
 
     try:
         runs = [x for x in os.listdir(root) if x.endswith(run_name)]
+        assert len(runs), f"None checkpoint is found in {root}, end with {run_name=}"
         try:
             runs.sort(key=lambda x: (month_to_number(x[:3]), int(x[3:5]), x[6:]))
         except ValueError as e:
@@ -138,30 +139,29 @@ def get_load_path(root, load_run=-1, checkpoint=-1, run_name=''):
     return load_path
 
 
-def update_cfg_from_args(env_cfg, cfg_train, args):
-    # seed
+def update_cfg_from_args(env_cfg, train_cfg, args):
     if env_cfg is not None:
-        # num envs
+        if args.seed is not None:
+            env_cfg.seed = args.seed
         if args.num_envs is not None:
             env_cfg.env.num_envs = args.num_envs
-    if cfg_train is not None:
+    if train_cfg is not None:
         if args.seed is not None:
-            cfg_train.seed = args.seed
-        # alg runner parameters
+            train_cfg.seed = args.seed
         if args.max_iterations is not None:
-            cfg_train.runner.max_iterations = args.max_iterations
+            train_cfg.runner.max_iterations = args.max_iterations
         if args.resume:
-            cfg_train.runner.resume = args.resume
+            train_cfg.runner.resume = args.resume
         if args.experiment_name is not None:
-            cfg_train.runner.experiment_name = args.experiment_name
+            train_cfg.runner.experiment_name = args.experiment_name
         if args.run_name is not None:
-            cfg_train.runner.run_name = args.run_name
+            train_cfg.runner.run_name = args.run_name
         if args.load_run is not None:
-            cfg_train.runner.load_run = args.load_run
+            train_cfg.runner.load_run = args.load_run
         if args.checkpoint is not None:
-            cfg_train.runner.checkpoint = args.checkpoint
+            train_cfg.runner.checkpoint = args.checkpoint
 
-    return env_cfg, cfg_train
+    return env_cfg, train_cfg
 
 
 def get_args(extra_parameters: list=None):
