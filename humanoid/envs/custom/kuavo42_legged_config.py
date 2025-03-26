@@ -132,6 +132,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         num_commands = 4
         resampling_time = 8.  # time before command are changed[s]
         heading_command = False  # if true: compute ang vel command from heading error
+        prob_high_lin_y_and_yaw = 0.05  # prob for both high line y and yaw velocity
 
         class ranges:
             lin_vel_x = [-0.4, 1.0]   # min max [m/s]
@@ -159,7 +160,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             feet_clearance = 1.
             feet_contact_number = 1.2
             # gait
-            feet_air_time = 1.
+            feet_air_time = 1.0
             foot_slip = -0.05
             feet_distance = 0.2
             knee_distance = 0.2

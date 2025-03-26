@@ -13,7 +13,10 @@ from humanoid.utils.terrain import  HumanoidTerrain
 
 class Kuavo42LeggedEnv(LeggedRobot):
     '''
-    Same as LeggedRobot
+    Reference humanoid_env.py XBotLFreeEnv class, change:
+    1. ref_dof_pos calculation
+    2. add _reward_termination
+    3. change _reward_collision calculation from torch.sum to torch.any
     '''
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
@@ -68,10 +71,6 @@ class Kuavo42LeggedEnv(LeggedRobot):
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
         joint_delta = self.cfg.rewards.target_joints_delta
         # left foot stance phase set to default joint pos
-        default_joint_angles_l = [
-            self.cfg.init_state.default_joint_angles[key] for key in [
-                'leg_l3_joint', 'leg_l4_joint', 'leg_l5_joint']
-        ]
         for i in range(3):
             self.ref_dof_pos[:, 2+i] = torch.where(
                 sin_pos_l < 0,
@@ -82,10 +81,6 @@ class Kuavo42LeggedEnv(LeggedRobot):
         # so we need sin_pos_l be positive: -sin_pos_l
 
         # right foot stance phase set to default joint pos
-        default_joint_angles_r = [
-            self.cfg.init_state.default_joint_angles[key] for key in [
-                'leg_r3_joint', 'leg_r4_joint', 'leg_r5_joint']
-        ]
         for i in range(3):
             self.ref_dof_pos[:, 8+i] = torch.where(
                 sin_pos_r >= 0,

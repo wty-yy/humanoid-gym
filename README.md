@@ -17,6 +17,8 @@ python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --hea
 python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --max-iterations 10001 --headless
 # kuavo42 legged single obs 
 python humanoid/scripts/train.py --task=kuavo42_legged_single_obs_ppo --run-name v1.1 --max-iterations 3001 --headless
+# g1
+python humanoid/scripts/train.py --task=g1_ppo --run-name v1.1 --max-iterations 3001 --headless
 ```
 ## Play
 ```bash
@@ -28,18 +30,33 @@ python humanoid/scripts/play.py --load-onnx models/Isaaclab/v2_20250319_lowpd.on
 python humanoid/scripts/play.py --load-jit models/XBot_ppo/jit_policy_example.pt --task=humanoid_ppo --run-name v1
 # kuavo42 legged ppo
 # Use joystick to control:
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8 --fix-command 0 --cycle-time 1.2
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8 --cycle-time 1.2
 # v8.1
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.1 --fix-command 0 --cycle-time 0.9
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.1 --cycle-time 0.9
 # v8.2
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.2 --fix-command 1 --cycle-time 0.64
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx --fix-command 1 --cycle-time 0.64 --run-name v8.2
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --run-name v8.2 --cycle-time 0.64
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.2_model_3001.onnx --cycle-time 0.64 --run-name v8.2
 # v8.3
-python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx --fix-command 0 --cycle-time 0.64 --run-name v8.3
+python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx --cycle-time 0.64 --run-name v8.3
 # kuavo42 legged ppo single obs
 # v1
-python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --fix-command 0 --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
+python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
+# benchmark
+python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --command benchmark --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
+
+# G1
+python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64
+python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64 --load-onnx models/g1/g1_ppo_v1_model_3001.onnx
 ```
+
+## Benchmark
+在`play.py`中执行固定的twist指令，通过指令追踪的误差来评判模型的性能
+| model | vel_x_mean_error | vel_y_mean_error | yaw_mean_error | mean_error (mean±std) | results (seed 42/0/1/2) |
+| - | - | - | - | - | - |
+| `Kuavo42_legged_single_obs_ppo_v1_model_3001` | 0.21297 | 0.07964 | 0.04883 | 0.11338±0.00316 | 0.11381/0.11071/0.11064/0.11838 |
+| `Kuavo42_legged_single_obs_ppo_v1.1_model_3001` | 0.20371 | 0.08301 | 0.03765 | 0.10847±0.00263 | 0.10812/0.10460/0.11194/0.10922 |
+| `Kuavo42_legged_single_obs_ppo_v1.2_model_3001` | 0.21393 | 0.07710 | 0.05306 | 0.12101±0.01263 | 0.11470/0.14286/0.11337/0.11312 |
+| `g1_v1_model_3001` | 0.21154 | 0.16446 | 0.08258 | 0.15397±0.00681 | 0.15286/0.14356/0.15757/0.16190 |
 
 # Fixed Bugs
 1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
@@ -202,7 +219,26 @@ v9训练结果不好，没有学到抬脚，可能是奖励给的太小导致
 ### Fixed Bugs
 1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
 ### kuavo42_legged_single_obs
-#### v1.1 (Deprecate)
+#### v1.1
 single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒（后来发现是play的输入y轴指令过大导致，已修复）
 1. 加入`prob_high_lin_y_and_yaw=0.05`随机化概率，若触发，随机将`lin_y`和`yaw`同时拉满到最大或最小值
-训练完成后发现对速度的追踪效果还不如v1，因此弃用
+> 训练完成后发现对速度的追踪效果还不如v1，因此弃用. 后来发现效果有用，又重新启用
+### g1 v1
+参考[unitree rl gym](https://github.com/unitreerobotics/unitree_rl_gym)构建g1的训练环境`g1_ppo`
+
+## 2025.3.26.
+1. g1 v1训练，效果不错，只是对y轴线速度追踪不稳定
+2. 发现sim2sim的代码问题，是因为传入obs时没有对q减去default_joint_pos
+3. 成功将kuavo42和g1在sim2sim_leju.py中进行成功迁移
+4. sim2sim_leju.py支持手柄控制机器人
+5. 在play时设计一套固定指令，记录err，用于评估不同模型的水平，向`command`中加入`joystick, fixed, benchmark`三种类型
+6. 加入`scripts/benchmark.sh`用于不同种子下，测试训练出的模型对cmd的追踪err
+7. 汇总kuavo42 single obs v1,v1.1,v1.2和g1 v1的平均err
+### kuavo42_legged_single_obs v1.2
+对奖励进行消融:
+1. `feet_air_time: 1. -> 0.`, 奖励过小，最终仅有0.008
+2. `dof_acc: -1e-7 -> 0.`, 奖励过小，最终仅有-0.003
+
+通过benchmark评估，发现v1.1效果最好，因此回退到v1.1的训练
+### g1 v1.1
+加入`prob_high_lin_y_and_yaw=0.05`的概率随机高y和yaw指令

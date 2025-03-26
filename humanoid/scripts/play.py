@@ -15,6 +15,21 @@ import torch
 from tqdm import tqdm
 from datetime import datetime
 
+BENCHMARK_CMDS = [
+    # duration [s], cmd [lin_x, lin_y, yaw]
+    (2, [1, 0, 0]),
+    (3, [0, 1, 1]),
+    (2, [1, 0, 0]),
+    (3, [0, 1, -1]),
+    (2, [1, 0, 0]),
+    (3, [0, -1, 1]),
+    (2, [1, 0, 0]),
+    (3, [0, -1, -1]),
+    (2, [-1, 0, 0]),
+    (2, [0, 1, 0]),
+    (2, [0, 0, 1])
+]
+
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
@@ -77,7 +92,22 @@ def play(args):
             os.path.join(path, f"{export_file_stem}.onnx"),
         )
         print('Exported onnx to: ', path)
-
+    
+    step_dt = env_cfg.control.decimation * env_cfg.sim.dt
+    total_steps = int(args.episode_length_s / step_dt)
+    
+    if args.command == 'benchmark':
+        cmd_idx = 0
+        benchmark_cmds = []  # [accumulate duration, cmd]
+        accumulate_duration = 0
+        for duration, sign_cmd in BENCHMARK_CMDS:
+            cmd = []
+            for i, name in enumerate(['lin_vel_x', 'lin_vel_y', 'ang_vel_yaw']):
+                mn, mx = getattr(env_cfg.commands.ranges, name)
+                cmd.append(mn if sign_cmd[i] == -1 else (mx if sign_cmd[i] == 1 else 0))
+            accumulate_duration += duration
+            benchmark_cmds.append((accumulate_duration, torch.tensor(cmd).to(env.device).reshape(1, -1)))
+        total_steps = int(accumulate_duration / step_dt)
 
     logger = Logger(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
     logger_legged_info = LoggerLeggedInfo(env.dt, train_cfg.runner.experiment_name, args.run_name, 1)
@@ -106,26 +136,33 @@ def play(args):
         Path(experiment_dir).mkdir(exist_ok=True, parents=True)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
     
-    if not args.fix_command:
+    if args.command == 'joystick':
         joystick_twist_command = JoystickTwistCommand(env_cfg)
 
-    # for i in tqdm(range(stop_state_log)):
     try:
-        while 1:
+        bar = tqdm(range(total_steps))
+        for n_step in bar:
+        # while 1:
 
             actions = policy(obs.detach()).detach()
             
-            if args.fix_command:
+            if args.command == 'fixed':
                 env.commands[:, 0] = 0.0
                 env.commands[:, 1] = 0.
                 env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
-            else:
+            elif args.command == 'joystick':
                 x_vel_cmd, y_vel_cmd, yaw_vel_cmd = joystick_twist_command.get_twist_cmd()
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = yaw_vel_cmd
                 env.commands[:, 3] = 0.
+            elif args.command == 'benchmark':
+                sec = n_step * step_dt
+                if sec >= benchmark_cmds[cmd_idx][0]:
+                    cmd_idx += 1
+                env.commands = benchmark_cmds[cmd_idx][1]
+            bar.set_description(f"cmd={env.commands[0,:3].cpu().numpy()}")
             # print(f"[DEBUG]: command={env.commands}")
 
             obs, critic_obs, rews, dones, infos = env.step(actions)
@@ -157,6 +194,7 @@ def play(args):
                 num_episodes = torch.sum(env.reset_buf).item()
                 if num_episodes>0:
                     logger.log_rewards(infos["episode"], num_episodes)
+            n_step += 1
     except KeyboardInterrupt:
         pass
     logger_legged_info.plot()
@@ -179,10 +217,10 @@ if __name__ == '__main__':
             "help": "Path of torch.jit model actor model",
         },
         {
-            "name": "--fix-command",
-            "type": lambda x: x in ['1', 'true', 'True'],
-            "default": True,
-            "help": "Use fix command or joystick command input",
+            "name": "--command",
+            "type": str,
+            "default": "joystick",
+            "help": "Type: [joystick, fixed, benchmark]",
         },
         {
             "name": "--cycle-time",
@@ -201,6 +239,12 @@ if __name__ == '__main__':
             "type": lambda x: x in ['1', 'true', 'True'],
             "default": True,
             "help": "If True, export pytorch actor network to onnx and pytorch.jit in `logs/[experiment_name]/exported/policies/[*.onnx | *.pt]`",
+        },
+        {
+            "name": "--episode-length-s",
+            "type": int,
+            "default": 60,
+            "help": "Total simulator length in playing [s]",
         },
     ])
     EXPORT_POLICY = args.export_policy

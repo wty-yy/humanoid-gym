@@ -335,6 +335,18 @@ class LeggedRobot(BaseTask):
         else:
             self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
 
+        if hasattr(self.cfg.commands, 'prob_high_lin_y_and_yaw') and not self.cfg.commands.heading_command:
+            prob = self.cfg.commands.prob_high_lin_y_and_yaw
+            flag = torch.rand(len(env_ids), device=self.device) < prob
+            idx = torch.tensor(env_ids, device=self.device)[flag]
+            n = flag.sum()
+            if n:
+                self.commands[idx, 0] = 0.
+                sign = torch.randint(0, 2, (n,), device=self.device) * 2 - 1  # sample in {-1, 1}
+                self.commands[idx, 1] = sign * self.command_ranges['lin_vel_y'][1]
+                sign = torch.randint(0, 2, (n,), device=self.device) * 2 - 1  # sample in {-1, 1}
+                self.commands[idx, 2] = sign * self.command_ranges['ang_vel_yaw'][1]
+
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
