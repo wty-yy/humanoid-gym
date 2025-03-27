@@ -47,6 +47,7 @@ python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name 
 # G1
 python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64
 python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64 --load-onnx models/g1/g1_ppo_v1_model_3001.onnx
+python humanoid/scripts/play.py --task=g1_ppo --run-name v1.1 --cycle-time 0.64 --load-onnx models/g1/g1_ppo_v1.1_model_3001.onnx
 ```
 
 ## Benchmark
@@ -57,6 +58,7 @@ python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64 --
 | `Kuavo42_legged_single_obs_ppo_v1.1_model_3001` | 0.20371 | 0.08301 | 0.03765 | 0.10847±0.00263 | 0.10812/0.10460/0.11194/0.10922 |
 | `Kuavo42_legged_single_obs_ppo_v1.2_model_3001` | 0.21393 | 0.07710 | 0.05306 | 0.12101±0.01263 | 0.11470/0.14286/0.11337/0.11312 |
 | `g1_v1_model_3001` | 0.21154 | 0.16446 | 0.08258 | 0.15397±0.00681 | 0.15286/0.14356/0.15757/0.16190 |
+| `g1_v1.1_model_3001` | 0.21207 | 0.16059 | 0.07595 | 0.14843±0.00445 | 0.14954/0.15522/0.14506/0.14390 |
 
 # Fixed Bugs
 1. `humanoid/utils/helpers.py`中`update_cfg_from_args`中的`args.seed`应该对`env_cfg.seed`进行更新而非`train_cfg.seed`，否则无法在`set_seed`中正确使用新种子
@@ -224,7 +226,13 @@ single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒�
 1. 加入`prob_high_lin_y_and_yaw=0.05`随机化概率，若触发，随机将`lin_y`和`yaw`同时拉满到最大或最小值
 > 训练完成后发现对速度的追踪效果还不如v1，因此弃用. 后来发现效果有用，又重新启用
 ### g1 v1
-参考[unitree rl gym](https://github.com/unitreerobotics/unitree_rl_gym)构建g1的训练环境`g1_ppo`
+参考[unitree rl gym](https://github.com/unitreerobotics/unitree_rl_gym)构建g1的训练环境`g1_ppo`，增大command range:
+```python
+#             kuavo42   ->    G1
+lin_vel_x = [-0.4, 1.0] -> [-0.8, 1.0]  # [m/s]
+lin_vel_y = [-0.2, 0.2] -> [-0.3, 0.3]  # [m/s]
+ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
+```
 
 ## 2025.3.26.
 1. g1 v1训练，效果不错，只是对y轴线速度追踪不稳定
@@ -242,3 +250,6 @@ single obs v1就是容易在y,yaw同时较大时踩到脚导致不稳定摔倒�
 通过benchmark评估，发现v1.1效果最好，因此回退到v1.1的训练
 ### g1 v1.1
 加入`prob_high_lin_y_and_yaw=0.05`的概率随机高y和yaw指令
+
+## 2025.3.27.
+1. g1 v1.1进行测试，基本和v1效果一致，有少许提升`0.15397 -> 0.14843`，可能是因为command的范围相比kuavo42大得多，所以相比kuavo42平均误差相对大0.04
