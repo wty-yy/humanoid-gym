@@ -20,6 +20,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
     '''
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
+        # self.debug_viz = True
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))

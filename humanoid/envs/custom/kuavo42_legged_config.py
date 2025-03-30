@@ -264,10 +264,28 @@ class Kuavo42LeggedSingleObsCfgPPO(Kuavo42LeggedCfgPPO):
     class runner(Kuavo42LeggedCfgPPO.runner):
         experiment_name = 'Kuavo42_legged_single_obs_ppo'
 
-class Kuavo42LeggedFineCfg(Kuavo42LeggedCfg):
+class Kuavo42LeggedFineCfg(Kuavo42LeggedSingleObsCfg):
     class asset(Kuavo42LeggedCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml'
 
 class Kuavo42LeggedFineCfgPPO(Kuavo42LeggedCfgPPO):
     class runner(Kuavo42LeggedCfgPPO.runner):
         experiment_name = 'Kuavo42_legged_fine_ppo'
+
+class Kuavo42LeggedTerrainCfg(Kuavo42LeggedSingleObsCfg):
+    class terrain(Kuavo42LeggedSingleObsCfg.terrain):
+        # mesh_type = 'plane'
+        mesh_type = 'heightfield'
+        curriculum = False
+        # rough terrain only:
+        measure_heights = True
+        static_friction = 1.0
+        dynamic_friction = 1.0
+        terrain_length = 8.
+        terrain_width = 8.
+        num_rows = 20  # number of terrain rows (levels)
+        num_cols = 20  # number of terrain cols (types)
+        max_init_terrain_level = 10  # starting curriculum state
+        # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
+        terrain_proportions = [0.2, 0.2, 0.4, 0.1, 0.1, 0, 0]
+        restitution = 0.

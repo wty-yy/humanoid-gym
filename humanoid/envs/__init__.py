@@ -63,6 +63,9 @@ task_registry.register("kuavo42_legged_simple_reward_ppo", Kuavo42LeggedSimpleRe
 from .custom.kuavo42_legged_config import Kuavo42LeggedSingleObsCfg, Kuavo42LeggedSingleObsCfgPPO
 task_registry.register("kuavo42_legged_single_obs_ppo", Kuavo42LeggedEnv, Kuavo42LeggedSingleObsCfg(), Kuavo42LeggedSingleObsCfgPPO())
 
+from .custom.kuavo42_legged_config import Kuavo42LeggedTerrainCfg
+task_registry.register("kuavo42_legged_terrain_ppo", Kuavo42LeggedEnv, Kuavo42LeggedTerrainCfg(), Kuavo42LeggedSingleObsCfgPPO())
+
 from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg, Kuavo42Leggeds2sCfgPPO
 from .custom.kuavo42_legged_s2s_env import Kuavo42Leggeds2sEnv
 task_registry.register("kuavo42_legged_s2s_ppo", Kuavo42Leggeds2sEnv, Kuavo42Leggeds2sCfg(), Kuavo42Leggeds2sCfgPPO())

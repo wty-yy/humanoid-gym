@@ -17,6 +17,10 @@ python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --hea
 python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --max-iterations 10001 --headless
 # kuavo42 legged single obs 
 python humanoid/scripts/train.py --task=kuavo42_legged_single_obs_ppo --run-name v1.1 --max-iterations 3001 --headless
+# Kauvo42 legged fine
+python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1 --max-iterations 3001 --headless
+# Change Cuda
+python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1 --max-iterations 3001 --headless --sim_device cuda:6 --rl-device cuda:6
 # g1
 python humanoid/scripts/train.py --task=g1_ppo --run-name v1.1 --max-iterations 3001 --headless
 ```
@@ -41,6 +45,10 @@ python humanoid/scripts/play.py --task=kuavo42_legged_ppo --load-onnx models/kua
 # kuavo42 legged ppo single obs
 # v1
 python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
+# v1.1
+python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1.1 --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1.1_model_3001.onnx
+# test on fine model
+python humanoid/scripts/play.py --task=kuavo42_legged_fine_ppo --run-name v1.1_single_obs --command benchmark --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1.1_model_3001.onnx
 # benchmark
 python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --command benchmark --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
 
@@ -255,5 +263,8 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 
 ## 2025.3.30.
 ### kuavo42_legged_fine v1
-1. 使用kuavo_s42_fine模型进行训练，固定除下肢以外的所有关节`resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml`
+1. 使用kuavo_s42_fine模型进行训练，固定除下肢以外的所有关节`resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml`，按照SingleObs进行训练
 2. 修改`cycle_time: 0.64 -> 1.2`
+
+### kuavo42_legged_terrain_ppo v1
+加入带有地形测试的环境
