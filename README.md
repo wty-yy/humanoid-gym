@@ -97,11 +97,10 @@ xbotl_simple_reward_v2: 加入1个保持base高度的奖励，高度保持为0.7
 加入kuavo42_legged环境: 参考[kuavo-rl-opensource](https://gitee.com/leju-robot/kuavo-rl-opensource/)中的`kuavo-robot-train`配置参数，将kuavo42模型加入，仅训练腿部12个关节，奖励参考humanoid-gym
 
 - `biped_s42_fixed_arm.xml`将14的arm关节换成fixed类型，`biped_s42.xml`中修改内容如下：
-  1. 修改`zarm`的`joint`类型
+  1. 删除`zarm`的`joint`类型
   ```xml
+  <!-- 删除 -->
   <joint name="zarm_l1_joint" pos="0 0 0" axis="0 1 0" range="-2.0933 0.5233" actuatorfrcrange="-60 60" damping='0.2'/>
-  <!-- 替换为 -->
-  <joint name="zarm_l1_joint" pos="0 0 0" type="fixed"/>
   ```
   2. 删除`<actuator>`中`zarm`相关的`motor`
   ```xml
@@ -253,3 +252,8 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 
 ## 2025.3.27.
 1. g1 v1.1进行测试，基本和v1效果一致，有少许提升`0.15397 -> 0.14843`，可能是因为command的范围相比kuavo42大得多，所以相比kuavo42平均误差相对大0.04
+
+## 2025.3.30.
+### kuavo42_legged_fine v1
+1. 使用kuavo_s42_fine模型进行训练，固定除下肢以外的所有关节`resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml`
+2. 修改`cycle_time: 0.64 -> 1.2`

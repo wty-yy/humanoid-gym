@@ -67,6 +67,9 @@ from .custom.kuavo42_legged_s2s_config import Kuavo42Leggeds2sCfg, Kuavo42Legged
 from .custom.kuavo42_legged_s2s_env import Kuavo42Leggeds2sEnv
 task_registry.register("kuavo42_legged_s2s_ppo", Kuavo42Leggeds2sEnv, Kuavo42Leggeds2sCfg(), Kuavo42Leggeds2sCfgPPO())
 
+from .custom.kuavo42_legged_config import Kuavo42LeggedFineCfg, Kuavo42LeggedFineCfgPPO
+task_registry.register("kuavo42_legged_fine_ppo", Kuavo42LeggedEnv, Kuavo42LeggedFineCfg(), Kuavo42LeggedFineCfgPPO())
+
 ############################# G1 #####################################
 from .custom.g1.g1_config import G1RoughCfg, G1RoughCfgPPO
 from .custom.g1.g1_env import G1Env

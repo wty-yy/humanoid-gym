@@ -147,7 +147,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         # put some settings here for LLM parameter tuning
         target_joints_delta = [-0.25, 0.5, -0.25]  # leg, knee, foot
         target_feet_height = 0.06        # m
-        cycle_time = 0.64                # sec
+        cycle_time = 1.2                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
@@ -263,3 +263,11 @@ class Kuavo42LeggedSingleObsCfg(Kuavo42LeggedCfg):
 class Kuavo42LeggedSingleObsCfgPPO(Kuavo42LeggedCfgPPO):
     class runner(Kuavo42LeggedCfgPPO.runner):
         experiment_name = 'Kuavo42_legged_single_obs_ppo'
+
+class Kuavo42LeggedFineCfg(Kuavo42LeggedCfg):
+    class asset(Kuavo42LeggedCfg.asset):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml'
+
+class Kuavo42LeggedFineCfgPPO(Kuavo42LeggedCfgPPO):
+    class runner(Kuavo42LeggedCfgPPO.runner):
+        experiment_name = 'Kuavo42_legged_fine_ppo'
