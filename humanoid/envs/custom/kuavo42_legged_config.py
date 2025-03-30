@@ -147,7 +147,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         # put some settings here for LLM parameter tuning
         target_joints_delta = [-0.25, 0.5, -0.25]  # leg, knee, foot
         target_feet_height = 0.06        # m
-        cycle_time = 1.2                # sec
+        cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)

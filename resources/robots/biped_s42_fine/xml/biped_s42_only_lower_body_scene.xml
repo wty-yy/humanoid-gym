@@ -33,7 +33,6 @@
       width="300" height="300"/>
     <material name="rough" texture="rough" texuniform="true" texrepeat="1 1" reflectance="0.1"/>
     <hfield name='hf0' nrow='200' ncol='200' size="10 5 0.2 .1"/>
-    <hfield file="../../mujoco_assets/road_heightfield.png" name="hf1" ncol="0" nrow="0" size="50 50 0.45 .1" />
 
   </asset>
 
@@ -54,16 +53,5 @@
     <geom name="stage8" type="box" size="0.2 1 0.05" pos="2.5 0 0.05" material="marble"/> -->
   </worldbody>
 
-  <keyframe>
-    <key name="home"
-      qpos="
-    0 0 0.98
-    1 0 0 0
-    0 0 0 0 0 0
-    0 0 0 0 0 0
-    0 0 0 0 0 0 0
-    0 0 0 0 0 0 0
-    0 0"/>
-  </keyframe>
 
 </mujoco>

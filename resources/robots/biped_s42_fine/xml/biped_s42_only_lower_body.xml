@@ -56,7 +56,8 @@
     <mesh name="radar" file="radar.STL" />
   </asset>
   <worldbody>
-    <body name="base_link" pos="0 0 0.82">
+    <!-- <body name="base_link" pos="0 0 0.82"> -->
+    <body name="base_link" pos="0 0 0.88">
       <freejoint />
       <site name="imu" pos="0 0 0" />
       <inertial pos="-0.0185005 0.00031952 0.192957" quat="0.998529 4.54328e-05 0.0542216 0.000512508" mass="22.8180" diaginertia="0.938886 0.825905 0.269012" />

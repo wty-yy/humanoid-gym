@@ -18,7 +18,7 @@ python humanoid/scripts/train.py --task=kuavo42_legged_ppo --run-name v8.3 --max
 # kuavo42 legged single obs 
 python humanoid/scripts/train.py --task=kuavo42_legged_single_obs_ppo --run-name v1.1 --max-iterations 3001 --headless
 # Kauvo42 legged fine
-python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1 --max-iterations 3001 --headless
+python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1.1 --max-iterations 3001 --headless
 # Change Cuda
 python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1 --max-iterations 3001 --headless --sim_device cuda:6 --rl-device cuda:6
 # g1
@@ -52,6 +52,10 @@ python humanoid/scripts/play.py --task=kuavo42_legged_fine_ppo --run-name v1.1_s
 # benchmark
 python humanoid/scripts/play.py --task=kuavo42_legged_single_obs_ppo --run-name v1 --command benchmark --cycle-time 0.64 --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx
 
+# kuavo42 legged ppo fine model
+python humanoid/scripts/play.py --task=kuavo42_legged_fine_ppo --run-name v1 --command benchmark --cycle-time 1.2 --load-onnx models/kuavo42_legged/Kuavo42_legged_fine_ppo_v1_model_3001.onnx
+
+
 # G1
 python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64
 python humanoid/scripts/play.py --task=g1_ppo --run-name v1 --cycle-time 0.64 --load-onnx models/g1/g1_ppo_v1_model_3001.onnx
@@ -65,6 +69,7 @@ python humanoid/scripts/play.py --task=g1_ppo --run-name v1.1 --cycle-time 0.64 
 | `Kuavo42_legged_single_obs_ppo_v1_model_3001` | 0.21297 | 0.07964 | 0.04883 | 0.11338±0.00316 | 0.11381/0.11071/0.11064/0.11838 |
 | `Kuavo42_legged_single_obs_ppo_v1.1_model_3001` | 0.20371 | 0.08301 | 0.03765 | 0.10847±0.00263 | 0.10812/0.10460/0.11194/0.10922 |
 | `Kuavo42_legged_single_obs_ppo_v1.2_model_3001` | 0.21393 | 0.07710 | 0.05306 | 0.12101±0.01263 | 0.11470/0.14286/0.11337/0.11312 |
+| `Kuavo42_legged_fine_ppo_v1_model_3001` | 0.22400 | 0.11335 | 0.04704 | 0.13153±0.00316 | 0.13664/0.12813/0.13128/0.13007
 | `g1_v1_model_3001` | 0.21154 | 0.16446 | 0.08258 | 0.15397±0.00681 | 0.15286/0.14356/0.15757/0.16190 |
 | `g1_v1.1_model_3001` | 0.21207 | 0.16059 | 0.07595 | 0.14843±0.00445 | 0.14954/0.15522/0.14506/0.14390 |
 
@@ -265,6 +270,13 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 ### kuavo42_legged_fine v1
 1. 使用kuavo_s42_fine模型进行训练，固定除下肢以外的所有关节`resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml`，按照SingleObs进行训练
 2. 修改`cycle_time: 0.64 -> 1.2`
+3. 将`kuavo42_legged_fine`加入sim2sim测试中，上传3001it模型到`models/leju`文件夹下
+
+带入到Python版本的Mujoco中测试，当x_lin大于0时，向前走一定会倒下，需要解决，可能是不同的cycle_time导致的？
+在C++的Mujoco中同样有向前倒下的问题，是mjcf模型的问题？
+
+### kuavo42_legged_fine v1.1
+1. 修改`cycle_time: 1.2 -> 0.64`
 
 ### kuavo42_legged_terrain_ppo v1
 加入带有地形测试的环境

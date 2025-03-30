@@ -5,7 +5,9 @@ python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo4
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
   --cycle-time 0.64 --version legged_gym
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx \
-  --cycle-time 0.64 --version legged_gym_single_obs --save-video 0
+  --cycle-time 0.64 --version legged_gym_single_obs --save-video 0 --joystick 1
+python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_fine_ppo_v1_model_3001.onnx \
+  --cycle-time 1.2 --version legged_gym_fine --save-video 0 --joystick 1
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/g1/g1_ppo_v1_model_3001.onnx \
   --cycle-time 0.64 --version legged_gym_single_obs_g1 --save-video 0
 """
@@ -19,6 +21,7 @@ from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
 from humanoid.envs import (
   Kuavo42Leggeds2sCfg, Kuavo42LeggedCfg, Kuavo42LeggedSingleObsCfg,
+  Kuavo42LeggedFineCfg,
   G1RoughCfg
 )
 from humanoid.scripts.sim2sim import quaternion_to_euler_array
@@ -132,7 +135,6 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
           ], dtype=np.float32).reshape(1, -1)
         elif 'legged_gym' in version:
           phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
-          # print(cfg.rewards.cycle_time)
           eu_ang = quaternion_to_euler_array(quat)
           eu_ang[eu_ang > math.pi] -= 2 * math.pi
           tmp = np.concatenate([
@@ -226,6 +228,9 @@ if __name__ == '__main__':
   elif args.version == 'legged_gym_single_obs_g1':
     cfg_class = G1RoughCfg
     model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene.xml'
+  elif args.version == 'legged_gym_fine':
+    cfg_class = Kuavo42LeggedFineCfg
+    model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body_scene.xml'
   else:
     raise ValueError(f"Don't know version={args.version}")
 
