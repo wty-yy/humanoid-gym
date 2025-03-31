@@ -49,7 +49,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
         cycle_time = self.cfg.rewards.cycle_time
         phase = self.episode_length_buf * self.dt / cycle_time
         if hasattr(self.cfg.rewards, "low_speed_stance"):
-            phase = phase * (~torch.all(self.commands[:, :3] <= self.low_speed_stance, dim=1))
+            phase = phase * (~torch.all(self.commands[:, :3].abs() <= self.low_speed_stance, dim=1))
         return phase
 
     def _get_gait_phase(self):
