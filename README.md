@@ -287,3 +287,4 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 1. 加入`low_speed_stance`条件，当x<0.1, y<0.05, yaw<0.1时，左右脚的`stance_mask`都是1，要求保持站立姿态
 ### kuavo42_legged_fine v1.2.1
 1. 修复上述条件为abs时设置stance_mask=1，否则倒退不抬脚
+2. 在构建obs时，正常传入phase信息，不对低cmd进行clip，不用对sim2sim的代码进行修改

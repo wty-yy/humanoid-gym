@@ -45,10 +45,10 @@ class Kuavo42LeggedEnv(LeggedRobot):
         self.gym.set_actor_root_state_tensor(
             self.sim, gymtorch.unwrap_tensor(self.root_states))
 
-    def  _get_phase(self):
+    def  _get_phase(self, build_obs=False):
         cycle_time = self.cfg.rewards.cycle_time
         phase = self.episode_length_buf * self.dt / cycle_time
-        if hasattr(self.cfg.rewards, "low_speed_stance"):
+        if hasattr(self.cfg.rewards, "low_speed_stance") and not build_obs:
             phase = phase * (~torch.all(self.commands[:, :3].abs() <= self.low_speed_stance, dim=1))
         return phase
 
@@ -153,7 +153,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
 
     def compute_observations(self):
 
-        phase = self._get_phase()
+        phase = self._get_phase(build_obs=True)
         self.compute_ref_state()
 
         sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
