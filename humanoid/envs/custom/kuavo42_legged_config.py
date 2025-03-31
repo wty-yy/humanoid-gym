@@ -265,8 +265,14 @@ class Kuavo42LeggedSingleObsCfgPPO(Kuavo42LeggedCfgPPO):
         experiment_name = 'Kuavo42_legged_single_obs_ppo'
 
 class Kuavo42LeggedFineCfg(Kuavo42LeggedSingleObsCfg):
-    class asset(Kuavo42LeggedCfg.asset):
+    class asset(Kuavo42LeggedSingleObsCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml'
+    
+    class rewards(Kuavo42LeggedSingleObsCfg.rewards):
+        low_speed_stance = [0.1, 0.05, 0.1]
+
+    class commands(Kuavo42LeggedSingleObsCfg.commands):
+        prob_low_cmd = 0.05  # if low_speed_stance is specified, robot should stand
 
 class Kuavo42LeggedFineCfgPPO(Kuavo42LeggedCfgPPO):
     class runner(Kuavo42LeggedCfgPPO.runner):

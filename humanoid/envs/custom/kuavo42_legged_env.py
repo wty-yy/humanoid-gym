@@ -23,6 +23,8 @@ class Kuavo42LeggedEnv(LeggedRobot):
         # self.debug_viz = True
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
+        if hasattr(self.cfg.rewards, "low_speed_stance"):
+            self.cfg.rewards.low_speed_stance = torch.tensor(self.cfg.rewards.low_speed_stance, device=self.device).reshape(1, -1)
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
         self.compute_observations()
 
@@ -46,6 +48,8 @@ class Kuavo42LeggedEnv(LeggedRobot):
     def  _get_phase(self):
         cycle_time = self.cfg.rewards.cycle_time
         phase = self.episode_length_buf * self.dt / cycle_time
+        if hasattr(self.cfg.rewards, "low_speed_stance"):
+            phase = phase * (~torch.all(self.commands[:, :3] <= self.cfg.rewards.low_speed_stance, dim=1))
         return phase
 
     def _get_gait_phase(self):
@@ -67,15 +71,13 @@ class Kuavo42LeggedEnv(LeggedRobot):
     def compute_ref_state(self):
         phase = self._get_phase()
         sin_pos = torch.sin(2 * torch.pi * phase)
-        sin_pos_l = sin_pos.clone()
-        sin_pos_r = sin_pos.clone()
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
         joint_delta = self.cfg.rewards.target_joints_delta
         # left foot stance phase set to default joint pos
         for i in range(3):
             self.ref_dof_pos[:, 2+i] = torch.where(
-                sin_pos_l < 0,
-                -sin_pos_l * joint_delta[i] + self.default_dof_pos[0,2+i],
+                sin_pos < 0,
+                -sin_pos * joint_delta[i] + self.default_dof_pos[0,2+i],
                 self.default_dof_pos[0,2+i]
             )
         # be careful, leju coordinate of the left and right feet is obtained by translation,
@@ -84,8 +86,8 @@ class Kuavo42LeggedEnv(LeggedRobot):
         # right foot stance phase set to default joint pos
         for i in range(3):
             self.ref_dof_pos[:, 8+i] = torch.where(
-                sin_pos_r >= 0,
-                sin_pos_r * joint_delta[i] + self.default_dof_pos[0,8+i],
+                sin_pos >= 0,
+                sin_pos * joint_delta[i] + self.default_dof_pos[0,8+i],
                 self.default_dof_pos[0,8+i]
             )
         # Double support phase

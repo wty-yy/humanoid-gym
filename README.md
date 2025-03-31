@@ -20,7 +20,7 @@ python humanoid/scripts/train.py --task=kuavo42_legged_single_obs_ppo --run-name
 # Kauvo42 legged fine
 python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1.1 --max-iterations 3001 --headless
 # Change Cuda
-python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1 --max-iterations 3001 --headless --sim_device cuda:6 --rl-device cuda:6
+python humanoid/scripts/train.py --task=kuavo42_legged_fine_ppo --run-name v1.1 --max-iterations 3001 --headless --sim_device cuda:6 --rl-device cuda:6
 # g1
 python humanoid/scripts/train.py --task=g1_ppo --run-name v1.1 --max-iterations 3001 --headless
 ```
@@ -280,3 +280,8 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 
 ### kuavo42_legged_terrain_ppo v1
 加入带有地形测试的环境
+
+## 2025.3.31.
+1. 将kuavo42_legged_fine v1.1在python sim2sim中测试，没有问题，非常稳定，所以抬脚频率提高能够提升机器人的稳定性？
+### kuavo42_legged_fine v1.2
+1. 加入`low_speed_stance`条件，当x<0.1, y<0.05, yaw<0.1时，左右脚的`stance_mask`都是1，要求保持站立姿态
