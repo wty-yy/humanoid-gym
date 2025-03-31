@@ -24,7 +24,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
         if hasattr(self.cfg.rewards, "low_speed_stance"):
-            self.cfg.rewards.low_speed_stance = torch.tensor(self.cfg.rewards.low_speed_stance, device=self.device).reshape(1, -1)
+            self.low_speed_stance = torch.tensor(self.cfg.rewards.low_speed_stance, device=self.device).reshape(1, -1)
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
         self.compute_observations()
 
@@ -49,7 +49,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
         cycle_time = self.cfg.rewards.cycle_time
         phase = self.episode_length_buf * self.dt / cycle_time
         if hasattr(self.cfg.rewards, "low_speed_stance"):
-            phase = phase * (~torch.all(self.commands[:, :3] <= self.cfg.rewards.low_speed_stance, dim=1))
+            phase = phase * (~torch.all(self.commands[:, :3] <= self.low_speed_stance, dim=1))
         return phase
 
     def _get_gait_phase(self):
