@@ -146,6 +146,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
         target_joints_delta = [-0.25, 0.5, -0.25]  # leg, knee, foot
+        ref_joint_idxs = [2, 3, 4, 8, 9, 10]
         target_feet_height = 0.06        # m
         cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -295,3 +296,13 @@ class Kuavo42LeggedTerrainCfg(Kuavo42LeggedSingleObsCfg):
         # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
         terrain_proportions = [0.2, 0.2, 0.4, 0.1, 0.1, 0, 0]
         restitution = 0.
+
+class Kuavo42LeggedFineObsCfg(Kuavo42LeggedFineCfg):
+    class env(Kuavo42LeggedFineCfg.env):
+        frame_stack = 1
+        num_single_obs = 50
+        num_observations = int(frame_stack * num_single_obs)
+
+class Kuavo42LeggedFineObsCfgPPO(Kuavo42LeggedFineCfgPPO):
+    class runner(Kuavo42LeggedFineCfgPPO.runner):
+        experiment_name = 'Kuavo42_legged_fine_obs_ppo'

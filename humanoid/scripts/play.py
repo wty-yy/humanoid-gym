@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import numpy as np
 from pathlib import Path
 from isaacgym import gymapi
@@ -41,7 +42,7 @@ def play(args):
     env_cfg.terrain.num_cols = 5
     env_cfg.terrain.curriculum = False     
     env_cfg.terrain.max_init_terrain_level = 5
-    env_cfg.noise.add_noise = True  # If need noise
+    env_cfg.noise.add_noise = False  # If need noise
     env_cfg.domain_rand.push_robots = False 
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
@@ -138,6 +139,9 @@ def play(args):
     
     if args.command == 'joystick':
         joystick_twist_command = JoystickTwistCommand(env_cfg)
+    
+    if args.save_obs:
+        obs_memory = []
 
     try:
         bar = tqdm(range(total_steps))
@@ -147,7 +151,7 @@ def play(args):
             actions = policy(obs.detach()).detach()
             
             if args.command == 'fixed':
-                env.commands[:, 0] = 0.0
+                env.commands[:, 0] = 0.3
                 env.commands[:, 1] = 0.
                 env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
@@ -195,9 +199,20 @@ def play(args):
                 if num_episodes>0:
                     logger.log_rewards(infos["episode"], num_episodes)
             n_step += 1
+
+            if args.save_obs:
+                obs_memory.append(obs.detach().cpu().numpy())
     except KeyboardInterrupt:
         pass
     logger_legged_info.plot()
+
+    if args.save_obs:
+        model_name = Path(args.load_onnx).stem if args.load_onnx is not None else (Path(args.load_jit) if args.load_jit is not None else f"{train_cfg.runner.experiment_name}_{args.run_name}")
+        path_save_obs_dir = Path(LEGGED_GYM_ROOT_DIR) / f"logs/save_obs/{model_name}/"
+        path_save_obs_dir.mkdir(exist_ok=True, parents=True)
+        obs_memory = np.array(obs_memory, dtype=np.float32)
+        print(f"[INFO]: Save obs memory at {path_save_obs_dir}")
+        np.save(path_save_obs_dir / f"{time.strftime('%Y%m%d_%H%M%S')}_isaacgym.npy", obs_memory)
 
     if RENDER:
         video.release()
@@ -232,19 +247,25 @@ if __name__ == '__main__':
             "name": "--render",
             "type": lambda x: x in ['1', 'true', 'True'],
             "default": True,
-            "help": "Save mp4 record video in `videos/[experiment_name]/[run_name]/[datetime].mp4`",
+            "help": "Save mp4 record video in `videos/<experiment_name>/<run_name>/<datetime>.mp4`",
         },
         {
             "name": "--export-policy",
             "type": lambda x: x in ['1', 'true', 'True'],
             "default": True,
-            "help": "If True, export pytorch actor network to onnx and pytorch.jit in `logs/[experiment_name]/exported/policies/[*.onnx | *.pt]`",
+            "help": "If True, export pytorch actor network to onnx and pytorch.jit in `logs/<experiment_name>/exported/policies/[*.onnx | *.pt]`",
         },
         {
             "name": "--episode-length-s",
             "type": int,
             "default": 60,
             "help": "Total simulator length in playing [s]",
+        },
+        {
+            "name": "--save-obs",
+            "type": lambda x: x in ['1', 'true', 'True'],
+            "default": False,
+            "help": "If true, all actor network observations will be saved in `logs/save_obs/<load_model_name>/<datetime>_isaacgym.npy`"
         },
     ])
     EXPORT_POLICY = args.export_policy

@@ -160,6 +160,8 @@ def update_cfg_from_args(env_cfg, train_cfg, args):
             train_cfg.runner.load_run = args.load_run
         if args.checkpoint is not None:
             train_cfg.runner.checkpoint = args.checkpoint
+        if args.wandb is not None:
+            train_cfg.runner.wandb = args.wandb
 
     return env_cfg, train_cfg
 
@@ -231,6 +233,11 @@ def get_args(extra_parameters: list=None):
             "type": int,
             "help": "Maximum number of training iterations. Overrides config file if provided.",
         },
+        {
+            "name": "--wandb",
+            "type": lambda x: x in ['1', 'True', 'true'],
+            "help": "If true, upload tensorboard loggers to wandb",
+        }
     ]
     if extra_parameters is not None:
         custom_parameters.extend(extra_parameters)

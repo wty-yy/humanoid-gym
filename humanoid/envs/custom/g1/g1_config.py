@@ -235,3 +235,18 @@ class G1RoughCfgPPO(LeggedRobotCfgPPO):
         wandb = True
 
   
+class G1LowSpeedStanceCfg(G1RoughCfg):
+    class rewards(G1RoughCfg.rewards):
+        low_speed_stance = [0.1, 0.05, 0.1]
+    
+    class commands(G1RoughCfg.commands):
+        prob_low_cmd = 0.05
+        class ranges:
+            lin_vel_x = [-1.0, 1.0]   # min max [m/s]
+            lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+            ang_vel_yaw = [-0.8, 0.8] # min max [rad/s]
+            heading = [-3.14, 3.14]
+
+class G1LowSpeedStanceCfgPPO(G1RoughCfgPPO):
+    class runner(G1RoughCfgPPO.runner):
+        experiment_name = 'g1_low_speed_stance_ppo'

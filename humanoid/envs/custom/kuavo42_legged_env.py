@@ -73,22 +73,23 @@ class Kuavo42LeggedEnv(LeggedRobot):
         sin_pos = torch.sin(2 * torch.pi * phase)
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
         joint_delta = self.cfg.rewards.target_joints_delta
+        ref_idx = self.cfg.rewards.ref_joint_idxs
         # left foot stance phase set to default joint pos
-        for i in range(3):
-            self.ref_dof_pos[:, 2+i] = torch.where(
+        for i, idx in enumerate(ref_idx[:3]):
+            self.ref_dof_pos[:, idx] = torch.where(
                 sin_pos < 0,
-                -sin_pos * joint_delta[i] + self.default_dof_pos[0,2+i],
-                self.default_dof_pos[0,2+i]
+                -sin_pos * joint_delta[i] + self.default_dof_pos[0,idx],
+                self.default_dof_pos[0,idx]
             )
         # be careful, leju coordinate of the left and right feet is obtained by translation,
         # so we need sin_pos_l be positive: -sin_pos_l
 
         # right foot stance phase set to default joint pos
-        for i in range(3):
-            self.ref_dof_pos[:, 8+i] = torch.where(
+        for i, idx in enumerate(ref_idx[3:]):
+            self.ref_dof_pos[:, idx] = torch.where(
                 sin_pos >= 0,
-                sin_pos * joint_delta[i] + self.default_dof_pos[0,8+i],
-                self.default_dof_pos[0,8+i]
+                sin_pos * joint_delta[i] + self.default_dof_pos[0,idx],
+                self.default_dof_pos[0,idx]
             )
         # Double support phase
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = self.default_dof_pos
@@ -498,3 +499,69 @@ class Kuavo42LeggedEnv(LeggedRobot):
         """
         return (self.reset_buf ^ self.time_out_buf).float()
         
+class Kuavo42LeggedFineObsEnv(Kuavo42LeggedEnv):
+    def compute_observations(self):
+
+        phase = self._get_phase(build_obs=True)
+        self.compute_ref_state()
+
+        sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
+        cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
+
+        stance_mask = self._get_gait_phase()
+        contact_mask = self.contact_forces[:, self.feet_indices, 2] > 5.
+
+        self.command_input = torch.cat(
+            (sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
+        
+        q = (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
+        dq = self.dof_vel * self.obs_scales.dof_vel
+        
+        diff = self.dof_pos - self.ref_dof_pos
+
+        self.privileged_obs_buf = torch.cat((
+            self.command_input,  # 2 + 3
+            (self.dof_pos - self.default_joint_pd_target) * \
+            self.obs_scales.dof_pos,  # 12
+            self.dof_vel * self.obs_scales.dof_vel,  # 12
+            self.actions,  # 12
+            diff,  # 12
+            self.base_lin_vel * self.obs_scales.lin_vel,  # 3
+            self.base_ang_vel * self.obs_scales.ang_vel,  # 3
+            self.projected_gravity * self.obs_scales.quat,  # 3
+            self.rand_push_force[:, :2],  # 2
+            self.rand_push_torque,  # 3
+            self.env_frictions,  # 1
+            self.body_mass / 30.,  # 1
+            stance_mask,  # 2
+            contact_mask,  # 2
+        ), dim=-1)
+
+        obs_buf = torch.cat((
+            self.command_input,  # 5 = 2D(sin cos) + 3D(vel_x, vel_y, aug_vel_yaw)
+            q,    # 12D
+            dq,  # 12D
+            self.actions,   # 12D
+            self.base_lin_vel * self.obs_scales.lin_vel,  # 3
+            self.base_ang_vel * self.obs_scales.ang_vel,  # 3
+            self.projected_gravity * self.obs_scales.quat,  # 3
+        ), dim=-1)
+
+        if self.cfg.terrain.measure_heights:
+            heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+            self.privileged_obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
+        
+        if self.add_noise:  
+            obs_now = obs_buf.clone() + torch.randn_like(obs_buf) * self.noise_scale_vec * self.cfg.noise.noise_level
+        else:
+            obs_now = obs_buf.clone()
+        self.obs_history.append(obs_now)
+        self.critic_history.append(self.privileged_obs_buf)
+
+
+        obs_buf_all = torch.stack([self.obs_history[i]
+                                   for i in range(self.obs_history.maxlen)], dim=1)  # N,T,K
+
+        self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)  # N, T*K
+        self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.env.c_frame_stack)], dim=1)
+

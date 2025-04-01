@@ -73,7 +73,14 @@ task_registry.register("kuavo42_legged_s2s_ppo", Kuavo42Leggeds2sEnv, Kuavo42Leg
 from .custom.kuavo42_legged_config import Kuavo42LeggedFineCfg, Kuavo42LeggedFineCfgPPO
 task_registry.register("kuavo42_legged_fine_ppo", Kuavo42LeggedEnv, Kuavo42LeggedFineCfg(), Kuavo42LeggedFineCfgPPO())
 
+from .custom.kuavo42_legged_config import Kuavo42LeggedFineObsCfg, Kuavo42LeggedFineObsCfgPPO
+from .custom.kuavo42_legged_env import Kuavo42LeggedFineObsEnv
+task_registry.register("kuavo42_legged_fine_obs_ppo", Kuavo42LeggedFineObsEnv, Kuavo42LeggedFineObsCfg(), Kuavo42LeggedFineObsCfgPPO())
+
 ############################# G1 #####################################
 from .custom.g1.g1_config import G1RoughCfg, G1RoughCfgPPO
 from .custom.g1.g1_env import G1Env
 task_registry.register("g1_ppo", G1Env, G1RoughCfg, G1RoughCfgPPO)
+
+from .custom.g1.g1_config import G1LowSpeedStanceCfg, G1LowSpeedStanceCfgPPO
+task_registry.register("g1_low_speed_stance_ppo", G1Env, G1LowSpeedStanceCfg, G1LowSpeedStanceCfgPPO)

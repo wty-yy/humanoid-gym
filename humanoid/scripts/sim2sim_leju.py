@@ -5,11 +5,16 @@ python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo4
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_ppo_v8.3_model_10001.onnx \
   --cycle-time 0.64 --version legged_gym
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_single_obs_ppo_v1_model_3001.onnx \
-  --cycle-time 0.64 --version legged_gym_single_obs --save-video 0 --joystick 1
+  --cycle-time 0.64 --version legged_gym_single_obs --joystick 1
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_fine_ppo_v1_model_3001.onnx \
-  --cycle-time 1.2 --version legged_gym_fine --save-video 0 --joystick 1
+  --cycle-time 1.2 --version legged_gym_fine --joystick 1
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/g1/g1_ppo_v1_model_3001.onnx \
-  --cycle-time 0.64 --version legged_gym_single_obs_g1 --save-video 0
+  --cycle-time 0.64 --version legged_gym_single_obs_g1
+
+
+For DEBUG
+python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo42_legged_fine_ppo_v1.1_model_3001.onnx \
+  --cycle-time 0.64 --version legged_gym_fine --save-obs 1 --sim-duration 10
 """
 
 import math
@@ -25,7 +30,7 @@ from humanoid.envs import (
   G1RoughCfg
 )
 from humanoid.scripts.sim2sim import quaternion_to_euler_array
-import cv2, os
+import cv2, os, time
 from pathlib import Path
 from datetime import datetime
 
@@ -33,7 +38,7 @@ from humanoid.utils.joystick import JoystickTwistCommand
 import imageio
 
 class cmd:
-  vx = 0.0
+  vx = 0.3
   vy = 0.0
   dyaw = 0.0
 
@@ -93,11 +98,8 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
 
   count_lowlevel = 0
 
-  if args.save_video:
-    frames = []
-    context = mujoco.MjrContext(model, mujoco.mjtFontScale.mjFONTSCALE_150)
-    viewport = mujoco.MjrRect(0, 0, 1280, 720)  # 设定视口大小
-
+  if args.save_obs:
+    obs_memory = []
 
   if 'legged_gym' in version:
     obs_stack = np.zeros([cfg.env.frame_stack, cfg.env.num_single_obs], np.float32)
@@ -114,9 +116,6 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
 
       # Obtain an observation
       q, dq, quat, v, omega, gvec = get_obs(data)
-      # print(f"{quat=}")
-      # q = q[-cfg.env.num_actions:]  # q:shape=(19,), get foot action:shape=(12,)
-      # dq = dq[-cfg.env.num_actions:]
 
       # 1000hz -> 100hz
       if count_lowlevel % cfg.sim_config.decimation == 0:
@@ -134,6 +133,9 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
             convert_joint_idx(action, True)
           ], dtype=np.float32).reshape(1, -1)
         elif 'legged_gym' in version:
+          # if hasattr(cfg.rewards, "low_speed_stance"):
+          #   cond = np.array(cfg.rewards.low_speed_stance)
+          #   phase_mask = ~np.all(np.abs(np.array([cmd.vx, cmd.vy, cmd.dyaw])) < cond)
           phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
           eu_ang = quaternion_to_euler_array(quat)
           eu_ang[eu_ang > math.pi] -= 2 * math.pi
@@ -155,6 +157,8 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
           obs = obs_stack.reshape(1, -1)
 
           obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
+          if args.save_obs:
+            obs_memory.append(obs)
           # np.save(f'./logs/debug_obs/tmp_obs_{count_lowlevel}.npy', obs)
           # if count_lowlevel > 200: exit()
 
@@ -186,22 +190,20 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
       mujoco.mj_step(model, data)
       viewer.render()
       count_lowlevel += 1
-      if args.save_video:
-        rgb = np.zeros((720, 1280, 3), dtype=np.uint8)
-        depth = np.zeros((720, 1280), dtype=np.float32)
-        mujoco.mjr_readPixels(rgb, depth, viewport, context)
-
-        frames.append(rgb)
-
-  except Exception as e:
-    print('Stop by:', e)
+  
+  except:
+    pass
+  # except Exception as e:
+  #   print('Stop by:', e)
+  
+  if args.save_obs:
+    path_save_obs_dir = Path(LEGGED_GYM_ROOT_DIR) / f"logs/save_obs/{Path(args.load_onnx).stem}/"
+    path_save_obs_dir.mkdir(exist_ok=True, parents=True)
+    obs_memory = np.array(obs_memory, dtype=np.float32)
+    print(f"[INFO]: Save obs memory at {path_save_obs_dir}")
+    np.save(path_save_obs_dir / f"{time.strftime('%Y%m%d_%H%M%S')}_mujoco.npy", obs_memory)
 
   viewer.close()
-  if args.save_video:
-    path_video: Path = Path(LEGGED_GYM_ROOT_DIR) / 'videos' / cfg.sim_config.mujoco_model_path
-    path_video.mkdir(exist_ok=True, parents=True)
-    print("Save video to", path_video)
-    imageio.mimsave(path_video, frames, fps=30)
 
 
 if __name__ == '__main__':
@@ -215,7 +217,9 @@ if __name__ == '__main__':
   parser.add_argument('--cycle-time', type=float, default=0.64,
     help="Cover cfg.rewards.cycle_time")
   parser.add_argument("--joystick", type=lambda x: x in ['1', 'True', 'true'], default=True)
-  parser.add_argument("--save-video", type=lambda x: x in ['1', 'True', 'true'], default=True)
+  parser.add_argument("--benchmark", type=lambda x: x in ['1', 'True', 'true'], default=False)
+  parser.add_argument("--save-obs", type=lambda x: x in ['1', 'True', 'true'], default=False)
+  parser.add_argument("--sim-duration", type=float, default=60)
   args = parser.parse_args()
 
   model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/mjcf/biped_s42_fixed_arm.xml'
@@ -238,7 +242,7 @@ if __name__ == '__main__':
 
     class sim_config:
       mujoco_model_path = model_path
-      sim_duration = 60.0
+      sim_duration = args.sim_duration
       # sim_duration = 0.2
       dt = 0.001
       decimation = 10

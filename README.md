@@ -288,3 +288,21 @@ ang_vel_yaw = [-0.4, 0.4] -> [-0.5, 0.5]  # [rad/s]
 ### kuavo42_legged_fine v1.2.1
 1. 修复上述条件为abs时设置stance_mask=1，否则倒退不抬脚
 2. 在构建obs时，正常传入phase信息，不对低cmd进行clip，不用对sim2sim的代码进行修改
+
+## 2025.4.1.
+1. play.py, sim2sim_leju.py中加入对obs的存储，加入compare_sim2sim_obs_dist.py用于比对二者的obs
+2. 将Kuavo42LeggedEnv和G1RoughEnv对齐，加入ref_joint_idxs参数，可以选择腿部关节的索引
+3. 将wandb参数加入到cli中，可用于开关wandb
+### kuavo42_legged_fine_obs_ppo v1
+1. 将obs和宇树的状态对齐，使用project_gravity而不是euler_xyz，状态维度47->50，actor网络输入再加入lin_vel
+### g1_low_speed_stance_ppo v1
+```python
+lin_vel_x = [-0.8, 1.0]   # min max [m/s]
+lin_vel_y = [-0.3, 0.3]   # min max [m/s]
+ang_vel_yaw = [-0.5, 0.5] # min max [rad/s]
+# 增大到
+lin_vel_x = [-1.0, 1.0]   # min max [m/s]
+lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+ang_vel_yaw = [-0.8, 0.8] # min max [rad/s]
+heading = [-3.14, 3.14]
+```
