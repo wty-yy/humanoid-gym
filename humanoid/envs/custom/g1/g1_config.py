@@ -250,3 +250,13 @@ class G1LowSpeedStanceCfg(G1RoughCfg):
 class G1LowSpeedStanceCfgPPO(G1RoughCfgPPO):
     class runner(G1RoughCfgPPO.runner):
         experiment_name = 'g1_low_speed_stance_ppo'
+
+class G1ObsCfg(G1LowSpeedStanceCfg):
+    class env(G1LowSpeedStanceCfg.env):
+        frame_stack = 1
+        num_single_obs = 50
+        num_observations = int(frame_stack * num_single_obs)
+
+class G1ObsCfgPPO(G1LowSpeedStanceCfgPPO):
+    class runner(G1LowSpeedStanceCfgPPO.runner):
+        experiment_name = 'g1_obs_ppo'

@@ -306,3 +306,5 @@ lin_vel_y = [-0.5, 0.5]   # min max [m/s]
 ang_vel_yaw = [-0.8, 0.8] # min max [rad/s]
 heading = [-3.14, 3.14]
 ```
+### g1_obs_ppo v1
+1. 使用宇树原版的obs，并加入low_speed_stance

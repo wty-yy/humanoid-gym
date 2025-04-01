@@ -84,3 +84,7 @@ task_registry.register("g1_ppo", G1Env, G1RoughCfg, G1RoughCfgPPO)
 
 from .custom.g1.g1_config import G1LowSpeedStanceCfg, G1LowSpeedStanceCfgPPO
 task_registry.register("g1_low_speed_stance_ppo", G1Env, G1LowSpeedStanceCfg, G1LowSpeedStanceCfgPPO)
+
+from .custom.g1.g1_config import G1ObsCfg, G1ObsCfgPPO
+from .custom.g1.g1_env import G1ObsEnv
+task_registry.register("g1_obs_ppo", G1ObsEnv, G1ObsCfg, G1ObsCfgPPO)
