@@ -10,6 +10,8 @@ python humanoid/scripts/sim2sim_leju.py --load-onnx models/kuavo42_legged/Kuavo4
   --cycle-time 1.2 --version legged_gym_fine --joystick 1
 python humanoid/scripts/sim2sim_leju.py --load-onnx models/g1/g1_ppo_v1_model_3001.onnx \
   --cycle-time 0.64 --version legged_gym_single_obs_g1
+python humanoid/scripts/sim2sim_leju.py --load-onnx /home/yy/Coding/robotics/humanoid-gym/logs/g1_obs_ppo/exported/policies/g1_obs_ppo_v1_model_3001.onnx \
+  --cycle-time 0.64 --version legged_gym_fine_obs_v2
 
 
 For DEBUG
@@ -26,8 +28,8 @@ from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
 from humanoid.envs import (
   Kuavo42Leggeds2sCfg, Kuavo42LeggedCfg, Kuavo42LeggedSingleObsCfg,
-  Kuavo42LeggedFineCfg,
-  G1RoughCfg
+  Kuavo42LeggedFineCfg, Kuavo42LeggedFineObsCfg,
+  G1RoughCfg, G1ObsCfg
 )
 from humanoid.scripts.sim2sim import quaternion_to_euler_array
 import cv2, os, time
@@ -139,20 +141,36 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
           phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
           eu_ang = quaternion_to_euler_array(quat)
           eu_ang[eu_ang > math.pi] -= 2 * math.pi
-          tmp = np.concatenate([
-            [
-              math.sin(2 * math.pi * phase),
-              math.cos(2 * math.pi * phase),
-              cmd.vx * cfg.normalization.obs_scales.lin_vel,
-              cmd.vy * cfg.normalization.obs_scales.lin_vel,
-              cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
-            ],
-            (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
-            dq * cfg.normalization.obs_scales.dof_vel,
-            action,
-            omega * cfg.normalization.obs_scales.ang_vel,
-            eu_ang * cfg.normalization.obs_scales.quat
-          ], dtype=np.float32).reshape(1, -1)
+          if 'obs_v2' in version:
+            tmp = np.concatenate([
+              [
+                math.sin(2 * math.pi * phase),
+                math.cos(2 * math.pi * phase),
+                cmd.vx * cfg.normalization.obs_scales.lin_vel,
+                cmd.vy * cfg.normalization.obs_scales.lin_vel,
+                cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
+              ],
+              (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
+              dq * cfg.normalization.obs_scales.dof_vel,
+              action,
+              omega * cfg.normalization.obs_scales.ang_vel,
+              gvec * cfg.normalization.obs_scales.quat
+            ], dtype=np.float32).reshape(1, -1)
+          else:
+            tmp = np.concatenate([
+              [
+                math.sin(2 * math.pi * phase),
+                math.cos(2 * math.pi * phase),
+                cmd.vx * cfg.normalization.obs_scales.lin_vel,
+                cmd.vy * cfg.normalization.obs_scales.lin_vel,
+                cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
+              ],
+              (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
+              dq * cfg.normalization.obs_scales.dof_vel,
+              action,
+              omega * cfg.normalization.obs_scales.ang_vel,
+              eu_ang * cfg.normalization.obs_scales.quat
+            ], dtype=np.float32).reshape(1, -1)
           obs_stack = np.concatenate([obs_stack[1:], tmp], axis=0)
           obs = obs_stack.reshape(1, -1)
 
@@ -191,8 +209,8 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
       viewer.render()
       count_lowlevel += 1
   
-  except:
-    pass
+  except Exception as e:
+    print(e)
   # except Exception as e:
   #   print('Stop by:', e)
   
@@ -229,11 +247,17 @@ if __name__ == '__main__':
     cfg_class = Kuavo42LeggedCfg
   elif args.version == 'legged_gym_single_obs':
     cfg_class = Kuavo42LeggedSingleObsCfg
-  elif args.version == 'legged_gym_single_obs_g1':
-    cfg_class = G1RoughCfg
+  elif args.version in ['legged_gym_single_obs_g1', 'g1_obs_v2']:
+    if args.version == 'legged_gym_single_obs_g1':
+      cfg_class = G1RoughCfg
+    elif args.version == 'g1_obs_v2':
+      cfg_class = G1ObsCfg
     model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene.xml'
   elif args.version == 'legged_gym_fine':
     cfg_class = Kuavo42LeggedFineCfg
+    model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body_scene.xml'
+  elif args.version == 'legged_gym_fine_obs_v2':
+    cfg_class = Kuavo42LeggedFineObsCfg
     model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body_scene.xml'
   else:
     raise ValueError(f"Don't know version={args.version}")

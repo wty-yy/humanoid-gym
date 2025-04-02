@@ -502,7 +502,7 @@ class Kuavo42LeggedEnv(LeggedRobot):
 class Kuavo42LeggedFineObsEnv(Kuavo42LeggedEnv):
     def compute_observations(self):
 
-        phase = self._get_phase(build_obs=True)
+        phase = self._get_phase()
         self.compute_ref_state()
 
         sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
@@ -542,7 +542,6 @@ class Kuavo42LeggedFineObsEnv(Kuavo42LeggedEnv):
             q,    # 12D
             dq,  # 12D
             self.actions,   # 12D
-            self.base_lin_vel * self.obs_scales.lin_vel,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.projected_gravity * self.obs_scales.quat,  # 3
         ), dim=-1)

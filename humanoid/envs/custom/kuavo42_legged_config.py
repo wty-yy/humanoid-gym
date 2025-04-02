@@ -300,7 +300,7 @@ class Kuavo42LeggedTerrainCfg(Kuavo42LeggedSingleObsCfg):
 class Kuavo42LeggedFineObsCfg(Kuavo42LeggedFineCfg):
     class env(Kuavo42LeggedFineCfg.env):
         frame_stack = 1
-        num_single_obs = 50
+        num_single_obs = 47
         num_observations = int(frame_stack * num_single_obs)
 
 class Kuavo42LeggedFineObsCfgPPO(Kuavo42LeggedFineCfgPPO):

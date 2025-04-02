@@ -308,3 +308,11 @@ heading = [-3.14, 3.14]
 ```
 ### g1_obs_ppo v1
 1. 使用宇树原版的obs，并加入low_speed_stance
+
+## 2025.4.2.
+1. 发现g1_obs_ppo, g1_low_speed_stance_ppo都无法在低速站立，可能是cmd范围过大，神经网络无法判断过小的数值，因此还是考虑之前的传入sin_phase,cos_phase=0,1的方法，这样更明显
+2. 发现obs v2中错误的加入了lin_vel，且sim2sim无法成功，可能是加入这个变量的原因，删除尝试消融问题
+### g1_obs_ppo v1.1 kuavo42_legged_fine_obs_ppo v1.1
+1. 将base_lin_vel从actor obs中删除
+2. 还是通过sin_phase=0, cos_phase=1传入actor网络判断站立（需手工判断站立）
+

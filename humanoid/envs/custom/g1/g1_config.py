@@ -254,7 +254,7 @@ class G1LowSpeedStanceCfgPPO(G1RoughCfgPPO):
 class G1ObsCfg(G1LowSpeedStanceCfg):
     class env(G1LowSpeedStanceCfg.env):
         frame_stack = 1
-        num_single_obs = 50
+        num_single_obs = 47
         num_observations = int(frame_stack * num_single_obs)
 
 class G1ObsCfgPPO(G1LowSpeedStanceCfgPPO):
