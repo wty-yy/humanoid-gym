@@ -45,6 +45,7 @@ from humanoid.envs.base.base_task import BaseTask
 from humanoid.utils.math_utils import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
 from humanoid.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
+from humanoid.utils.lowpass_filter import LowPassFilter2ndOrder
 
 
 def get_euler_xyz_tensor(quat):
@@ -80,6 +81,8 @@ class LeggedRobot(BaseTask):
         self._init_buffers()
         self._prepare_reward_function()
         self.init_done = True
+
+        self.lin_acc_filter = LowPassFilter2ndOrder(self.dt, [10, 10, 10], self.num_envs, self.device)
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -142,6 +145,12 @@ class LeggedRobot(BaseTask):
         self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
+
+        # compute linear acc by LowPassFilter2ndOrder
+        free_acc = (self.root_states[:, 7:10] - self.last_root_vel[:, :3]) / self.dt  # acc without filter
+        free_acc[:, 2] -= self.sim_params.gravity.z
+        self.base_lin_acc[:] = self.lin_acc_filter.update(quat_rotate_inverse(self.base_quat, free_acc))
+
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.last_last_actions[:] = torch.clone(self.last_actions[:])
@@ -486,6 +495,7 @@ class LeggedRobot(BaseTask):
         self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.forward_vec = to_torch([1., 0., 0.], device=self.device).repeat((self.num_envs, 1))
+        self.base_lin_acc = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
         self.torques = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.p_gains = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.d_gains = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)

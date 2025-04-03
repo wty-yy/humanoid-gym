@@ -316,3 +316,17 @@ heading = [-3.14, 3.14]
 1. 将base_lin_vel从actor obs中删除
 2. 还是通过sin_phase=0, cos_phase=1传入actor网络判断站立（需手工判断站立）
 
+## 2025.4.3.
+### kuavo42_legged_leju_ppo v1
+将乐聚官方训练的模型actor输入obs和网络结构复现：
+1. 加入`env_cfg.normalization.obs_scales.lin_acc = 0.5`，
+2. 引入`LowPassFilter2ndOrder`计算`LeggedRobot`中`post_physics_step`加入`env.base_lin_acc`计算
+3. `command`不再`* self.commands_scale`
+4. 加入`stance`到`command`的第5维度
+5. `command`加入三种随机比例：
+    ```python
+    rel_standing_envs = 0.1  # 站立
+    rel_marking_envs = 0.1   # 全0指令
+    rel_straight_envs = 0.4  # 仅向前
+    ```
+6. PPO训练中加入`LongShortActorCritic`一个CNN网络
