@@ -337,3 +337,27 @@ heading = [-3.14, 3.14]
     rate_high_x_envs = 0.3  # x较高(随机值*5, clip)
     rate_high_y_yaw_envs = 0.1   # y, yaw较高(随机值*5, clip)
     ```
+### kuavo42_legged_leju_ppo v1.1
+发现Kuavo42_legged_leju_ppo_v1迁移到C++的mujoco中还是会倒下，不能稳定平衡住，因此继续复现官方的内容
+1. `action_scale = 0.5 -> 0.25`
+2. `domain_rand`部分
+    1. `friction_range = [0.1, 2.0] -> [0.2, 1.0]`
+    2. `push_interval_s = 4 -> 6`
+    3. 删除`_push_robots`，取而代之`sample_random_push`能产生连续的推力
+    4. 加入`is_pushing`属性，重构`reset_idx, _init_buffers`以支持随机参数初始化
+    5. 重构`step, post_physics_step`函数，以支持连续推力产生
+    6. 重构`_process_rigid_body_props`函数
+        1. 加入`randomize_com_displacement`质心偏移随机化
+        2. 加入`randomize_link_mass` link质量随机缩放比例
+    7. 重构`_process_rigid_shape_props`函数
+        1. 加入`randomize_restitution`弹性系数随机化
+    8. 重构`_compute_torques`函数
+        1. 加入`randomize_motor_strength`随机电机（力矩强度）缩放
+        2. 加入`randomize_kp, randomize_kd`对pd系数进行随机比例缩放
+    9. 重构`_process_dof_props`函数
+        1. 加入`randomize_joint_friction`随机关节摩擦比例缩放
+        2. 加入`randomize_joint_armature`随机关节转动惯量比例缩放
+        3. 加入`asset.velocity_limit`对每个关节最大速度进行限制
+    10. 最后有两个随机化没有实现，也没有打开`randomize_joint_pos_bias, randomize_euler_xy_zero_pos`
+    11. 加入`get_torque_limit_from_mujoco, get_frictionloss_from_mujoco`函数，在`_process_dof_props`中使用，获取关节最大力矩（可能通过相对值计算也有相同效果？）
+3. `privileged_obs`加入上述域随机化信息，`single_num_privileged_obs: 74 -> 126`

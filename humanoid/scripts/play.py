@@ -10,7 +10,7 @@ from humanoid.envs import *
 from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
 from humanoid.utils.logger_legged_info import Logger as LoggerLeggedInfo
 from isaacgym.torch_utils import *
-from humanoid.utils.joystick import JoystickTwistCommand
+from humanoid.utils.joystick import JoystickCommand
 
 import torch
 from tqdm import tqdm
@@ -138,7 +138,7 @@ def play(args):
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
     
     if args.command == 'joystick':
-        joystick_twist_command = JoystickTwistCommand(env_cfg)
+        joystick_command = JoystickCommand(env_cfg)
     
     if args.save_obs:
         obs_memory = []
@@ -156,11 +156,13 @@ def play(args):
                 env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
             elif args.command == 'joystick':
-                x_vel_cmd, y_vel_cmd, yaw_vel_cmd = joystick_twist_command.get_twist_cmd()
+                x_vel_cmd, y_vel_cmd, yaw_vel_cmd, stand_cmd = joystick_command.get_twist_and_stand_cmd()
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = yaw_vel_cmd
                 env.commands[:, 3] = 0.
+                if env.commands.shape[1] == 5:
+                    env.commands[:, 4] = stand_cmd
             elif args.command == 'benchmark':
                 sec = n_step * step_dt
                 if sec >= benchmark_cmds[cmd_idx][0]:

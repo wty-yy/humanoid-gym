@@ -8,8 +8,11 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         num_single_obs = 6 + 12 * 3 + 3 * 2 + 2
         num_observations = int(frame_stack * num_single_obs)
         c_frame_stack = 3
-        single_num_privileged_obs = 74
+        single_num_privileged_obs = 126
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+    
+    class asset(Kuavo42LeggedFineCfg.asset):
+        velocity_limit = [14, 14, 23, 14, 10, 10] * 2  # + [10] * 14
 
     class normalization:
         class obs_scales:
@@ -50,6 +53,55 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
             lin_acc = 0.5
             quat = 0.03
             height_measurements = 0.1
+
+    class control(Kuavo42LeggedFineCfg.control):
+        action_scale = 0.25
+
+    class domain_rand:
+        randomize_base_mass = True  # 整机质量随机偏移
+        added_mass_range = [-5., 5.]
+
+        randomize_com_displacement = True  # 质心随机偏移
+        com_displacement_range = [-0.05, 0.05]
+
+        randomize_link_mass = True  # link质量随机比例缩放
+        link_mass_range = [0.8, 1.2]
+
+        randomize_friction = True  # 随机摩擦
+        friction_range = [0.2, 1.0]
+
+        randomize_restitution = True  # 随机弹性系数
+        restitution_range = [0., 0.5]
+
+        randomize_motor_strength = True  # 电机（力矩强度）
+        motor_strength_range = [0.8, 1.2]
+
+        randomize_joint_friction = True  # 关节摩擦
+        joint_friction_range = [0.5, 1.5]
+
+        randomize_joint_armature = True  # 转动惯量
+        joint_armature_range = [0.5, 1.5]
+
+        push_robots = True  # 连续推力
+        push_interval_s = 6.
+        push_length_s = [0.05, 0.5]
+        max_push = [15, 15, 15, 5, 5, 5]
+
+        randomize_kp = True  # kp值
+        kp_range = [0.8, 1.2]
+
+        randomize_kd = True  # kd值
+        kd_range = [0.8, 1.2]
+
+        randomize_joint_pos_bias = False
+        joint_pos_bias_range = [-0.05, 0.05]
+
+        randomize_euler_xy_zero_pos = False
+        euler_xy_zero_pos_range = [-0.03, 0.03]
+
+        # dynamic randomization
+        action_delay = 0.5
+        action_noise = 0.02
 
 class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):

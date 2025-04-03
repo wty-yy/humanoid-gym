@@ -36,7 +36,7 @@ import cv2, os, time
 from pathlib import Path
 from datetime import datetime
 
-from humanoid.utils.joystick import JoystickTwistCommand
+from humanoid.utils.joystick import JoystickCommand
 import imageio
 
 class cmd:
@@ -286,5 +286,5 @@ if __name__ == '__main__':
     cfg.robot_config.kps = np.array([100, 100, 100, 150, 40, 40, 100, 100, 100, 150, 40, 40], dtype=np.double)
     cfg.robot_config.kds = np.array([2, 2, 2, 4, 2, 2, 2, 2, 2, 4, 2, 2], dtype=np.double)
   if args.joystick:
-    joystick_twist_cmd = JoystickTwistCommand(cfg)
+    joystick_twist_cmd = JoystickCommand(cfg)
   run_mujoco(policy, cfg, args.version)
