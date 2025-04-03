@@ -330,3 +330,10 @@ heading = [-3.14, 3.14]
     rel_straight_envs = 0.4  # 仅向前
     ```
 6. PPO训练中加入`LongShortActorCritic`一个CNN网络
+### kuavo42_legged_fine_obs_ppo v1.2, g1_obs_ppo v1.2
+1. 向前走路突然停下，可能倾倒，`command`加入三种随机比例：
+    ```python
+    rate_standing_envs = 0.2   # 全0指令
+    rate_high_x_envs = 0.3  # x较高(随机值*5, clip)
+    rate_high_y_yaw_envs = 0.1   # y, yaw较高(随机值*5, clip)
+    ```

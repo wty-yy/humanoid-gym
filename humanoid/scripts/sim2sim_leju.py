@@ -113,104 +113,104 @@ def run_mujoco(policy, cfg: Kuavo42LeggedCfg, version):
     viewer.render()
 
 
-  try:
-    for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
+  # try:
+  for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
-      # Obtain an observation
-      q, dq, quat, v, omega, gvec = get_obs(data)
+    # Obtain an observation
+    q, dq, quat, v, omega, gvec = get_obs(data)
 
-      # 1000hz -> 100hz
-      if count_lowlevel % cfg.sim_config.decimation == 0:
+    # 1000hz -> 100hz
+    if count_lowlevel % cfg.sim_config.decimation == 0:
 
-        if args.joystick:
-          cmd.vx = joystick_twist_cmd.x_vel_cmd
-          cmd.vy = joystick_twist_cmd.y_vel_cmd
-          cmd.dyaw = joystick_twist_cmd.yaw_vel_cmd
+      if args.joystick:
+        cmd.vx = joystick_twist_cmd.x_vel_cmd
+        cmd.vy = joystick_twist_cmd.y_vel_cmd
+        cmd.dyaw = joystick_twist_cmd.yaw_vel_cmd
 
-        if version == 'isaacsim':
-          obs = np.concatenate([
-            v, omega, gvec, [cmd.vx, cmd.vy, cmd.dyaw], 
-            convert_joint_idx(q, True),
-            convert_joint_idx(dq, True),
-            convert_joint_idx(action, True)
+      if version == 'isaacsim':
+        obs = np.concatenate([
+          v, omega, gvec, [cmd.vx, cmd.vy, cmd.dyaw], 
+          convert_joint_idx(q, True),
+          convert_joint_idx(dq, True),
+          convert_joint_idx(action, True)
+        ], dtype=np.float32).reshape(1, -1)
+      elif 'legged_gym' in version:
+        if hasattr(cfg.rewards, "low_speed_stance"):
+          cond = np.array(cfg.rewards.low_speed_stance)
+          phase_mask = ~np.all(np.abs(np.array([cmd.vx, cmd.vy, cmd.dyaw])) < cond)
+        phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time * phase_mask
+        eu_ang = quaternion_to_euler_array(quat)
+        eu_ang[eu_ang > math.pi] -= 2 * math.pi
+        if 'obs_v2' in version:
+          tmp = np.concatenate([
+            [
+              math.sin(2 * math.pi * phase),
+              math.cos(2 * math.pi * phase),
+              cmd.vx * cfg.normalization.obs_scales.lin_vel,
+              cmd.vy * cfg.normalization.obs_scales.lin_vel,
+              cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
+            ],
+            (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
+            dq * cfg.normalization.obs_scales.dof_vel,
+            action,
+            omega * cfg.normalization.obs_scales.ang_vel,
+            gvec * cfg.normalization.obs_scales.quat
           ], dtype=np.float32).reshape(1, -1)
-        elif 'legged_gym' in version:
-          # if hasattr(cfg.rewards, "low_speed_stance"):
-          #   cond = np.array(cfg.rewards.low_speed_stance)
-          #   phase_mask = ~np.all(np.abs(np.array([cmd.vx, cmd.vy, cmd.dyaw])) < cond)
-          phase = count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
-          eu_ang = quaternion_to_euler_array(quat)
-          eu_ang[eu_ang > math.pi] -= 2 * math.pi
-          if 'obs_v2' in version:
-            tmp = np.concatenate([
-              [
-                math.sin(2 * math.pi * phase),
-                math.cos(2 * math.pi * phase),
-                cmd.vx * cfg.normalization.obs_scales.lin_vel,
-                cmd.vy * cfg.normalization.obs_scales.lin_vel,
-                cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
-              ],
-              (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
-              dq * cfg.normalization.obs_scales.dof_vel,
-              action,
-              omega * cfg.normalization.obs_scales.ang_vel,
-              gvec * cfg.normalization.obs_scales.quat
-            ], dtype=np.float32).reshape(1, -1)
-          else:
-            tmp = np.concatenate([
-              [
-                math.sin(2 * math.pi * phase),
-                math.cos(2 * math.pi * phase),
-                cmd.vx * cfg.normalization.obs_scales.lin_vel,
-                cmd.vy * cfg.normalization.obs_scales.lin_vel,
-                cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
-              ],
-              (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
-              dq * cfg.normalization.obs_scales.dof_vel,
-              action,
-              omega * cfg.normalization.obs_scales.ang_vel,
-              eu_ang * cfg.normalization.obs_scales.quat
-            ], dtype=np.float32).reshape(1, -1)
-          obs_stack = np.concatenate([obs_stack[1:], tmp], axis=0)
-          obs = obs_stack.reshape(1, -1)
+        else:
+          tmp = np.concatenate([
+            [
+              math.sin(2 * math.pi * phase),
+              math.cos(2 * math.pi * phase),
+              cmd.vx * cfg.normalization.obs_scales.lin_vel,
+              cmd.vy * cfg.normalization.obs_scales.lin_vel,
+              cmd.dyaw * cfg.normalization.obs_scales.ang_vel,
+            ],
+            (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos,
+            dq * cfg.normalization.obs_scales.dof_vel,
+            action,
+            omega * cfg.normalization.obs_scales.ang_vel,
+            eu_ang * cfg.normalization.obs_scales.quat
+          ], dtype=np.float32).reshape(1, -1)
+        obs_stack = np.concatenate([obs_stack[1:], tmp], axis=0)
+        obs = obs_stack.reshape(1, -1)
 
-          obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
-          if args.save_obs:
-            obs_memory.append(obs)
-          # np.save(f'./logs/debug_obs/tmp_obs_{count_lowlevel}.npy', obs)
-          # if count_lowlevel > 200: exit()
+        obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
+        if args.save_obs:
+          obs_memory.append(obs)
+        # np.save(f'./logs/debug_obs/tmp_obs_{count_lowlevel}.npy', obs)
+        # if count_lowlevel > 200: exit()
 
-        # print(f"{v=},\n{omega=},\n{gvec=},\ncmd={[cmd.vx, cmd.vy, cmd.dyaw]},")
-        # print(f"q={convert_joint_idx(q, True)},")
-        # print(f"dq={convert_joint_idx(dq, True)},")
-        # print(f"action={convert_joint_idx(action, True)}")
+      # print(f"{v=},\n{omega=},\n{gvec=},\ncmd={[cmd.vx, cmd.vy, cmd.dyaw]},")
+      # print(f"q={convert_joint_idx(q, True)},")
+      # print(f"dq={convert_joint_idx(dq, True)},")
+      # print(f"action={convert_joint_idx(action, True)}")
 
-        action[:] = policy(obs)[0]
-        if version == 'isaacsim':
-          action = convert_joint_idx(action, False)
-        action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
-        # np.save(f'./logs/debug_action/tmp_action_{count_lowlevel}.npy', action)
+      action[:] = policy(obs)[0]
+      if version == 'isaacsim':
+        action = convert_joint_idx(action, False)
+      action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
+      # np.save(f'./logs/debug_action/tmp_action_{count_lowlevel}.npy', action)
 
-        target_q = action * cfg.control.action_scale
-        if 'legged_gym' in version:
-          target_q = target_q + default_joint_pos
+      target_q = action * cfg.control.action_scale
+      if 'legged_gym' in version:
+        target_q = target_q + default_joint_pos
 
 
-      target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
-      # Generate PD control
-      tau = pd_control(target_q, q, cfg.robot_config.kps,
-              target_dq, dq, cfg.robot_config.kds)  # Calc torques
-      tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
-      # tau = np.zeros_like(tau)
-      # np.save(f'./logs/debug_tau/tmp_tau_{count_lowlevel}.npy', tau)
-      data.ctrl = tau
+    target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
+    # Generate PD control
+    tau = pd_control(target_q, q, cfg.robot_config.kps,
+            target_dq, dq, cfg.robot_config.kds)  # Calc torques
+    tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
+    # tau = np.zeros_like(tau)
+    # np.save(f'./logs/debug_tau/tmp_tau_{count_lowlevel}.npy', tau)
+    data.ctrl = tau
 
-      mujoco.mj_step(model, data)
-      viewer.render()
-      count_lowlevel += 1
+    mujoco.mj_step(model, data)
+    viewer.render()
+    count_lowlevel += 1
   
-  except Exception as e:
-    print(e)
+  # except Exception as e:
+  #   print(e)
   # except Exception as e:
   #   print('Stop by:', e)
   
@@ -247,10 +247,10 @@ if __name__ == '__main__':
     cfg_class = Kuavo42LeggedCfg
   elif args.version == 'legged_gym_single_obs':
     cfg_class = Kuavo42LeggedSingleObsCfg
-  elif args.version in ['legged_gym_single_obs_g1', 'g1_obs_v2']:
+  elif args.version in ['legged_gym_single_obs_g1', 'legged_gym_g1_obs_v2']:
     if args.version == 'legged_gym_single_obs_g1':
       cfg_class = G1RoughCfg
-    elif args.version == 'g1_obs_v2':
+    elif args.version == 'legged_gym_g1_obs_v2':
       cfg_class = G1ObsCfg
     model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene.xml'
   elif args.version == 'legged_gym_fine':

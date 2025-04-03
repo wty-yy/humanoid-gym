@@ -239,8 +239,14 @@ class G1LowSpeedStanceCfg(G1RoughCfg):
     class rewards(G1RoughCfg.rewards):
         low_speed_stance = [0.1, 0.05, 0.1]
     
-    class commands(G1RoughCfg.commands):
-        prob_low_cmd = 0.05
+    class commands(LeggedRobotCfg.commands):
+        num_commands = 4
+        resampling_time = 8.  # time before command are changed[s]
+        heading_command = False  # if true: compute ang vel command from heading error
+        rate_standing_envs = 0.2   # 全0指令
+        rate_high_x_envs = 0.3  # x较高(随机值*5, clip)
+        rate_high_y_yaw_envs = 0.1   # y, yaw较高(随机值*5, clip)
+
         class ranges:
             lin_vel_x = [-1.0, 1.0]   # min max [m/s]
             lin_vel_y = [-0.5, 0.5]   # min max [m/s]

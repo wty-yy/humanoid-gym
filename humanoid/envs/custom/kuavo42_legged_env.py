@@ -563,4 +563,38 @@ class Kuavo42LeggedFineObsEnv(Kuavo42LeggedEnv):
 
         self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)  # N, T*K
         self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.env.c_frame_stack)], dim=1)
+    
+    def _resample_commands(self, env_ids):
+        """ Randommly select commands of some environments
+
+        Args:
+            env_ids (List[int]): Environments ids for which new commands are needed
+        """
+        if not len(env_ids): return
+        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        if self.cfg.commands.heading_command:
+            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        else:
+            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+
+        cfg = self.cfg
+        num_standing_envs = int(cfg.commands.rate_standing_envs * len(env_ids))
+        num_high_x_envs = int(cfg.commands.rate_high_x_envs * len(env_ids))
+        num_high_y_yaw_envs = int(cfg.commands.rate_high_y_yaw_envs * len(env_ids))
+        random_perm = torch.randperm(len(env_ids))
+        standing_env_ids = env_ids[random_perm[:num_standing_envs]]
+        straight_env_ids = env_ids[random_perm[num_standing_envs:num_standing_envs+num_high_x_envs]]
+        high_y_yaw_env_ids = env_ids[random_perm[num_standing_envs+num_high_x_envs:num_standing_envs+num_standing_envs+num_high_y_yaw_envs]]
+        random_env_ids = env_ids[random_perm[num_standing_envs+num_high_x_envs+num_high_y_yaw_envs:]]
+
+        # standing
+        self.commands[standing_env_ids, :3] = 0
+        # straight
+        self.commands[straight_env_ids, 1:3] = 0
+        self.commands[standing_env_ids, 0] = torch.clip(self.commands[standing_env_ids, 0] * 5, self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1])
+        # hight_y_yaw
+        self.commands[high_y_yaw_env_ids, 0] = 0
+        self.commands[standing_env_ids, 1] = torch.clip(self.commands[standing_env_ids, 1] * 5, self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1])
+        self.commands[standing_env_ids, 2] = torch.clip(self.commands[standing_env_ids, 2] * 5, self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1])
 
