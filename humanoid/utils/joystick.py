@@ -107,7 +107,6 @@ if __name__ == '__main__':
   joystick_cmd = JoystickCommand(env_cfg)
   try:
     while not joystick_cmd.exit_flag:
-      ...
-      # print(joystick_cmd.get_twist_cmd())
+      print(joystick_cmd.get_twist_cmd())
   except KeyboardInterrupt:
     joystick_cmd.close()

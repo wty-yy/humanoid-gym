@@ -156,7 +156,10 @@ def play(args):
                 env.commands[:, 2] = 0.0
                 env.commands[:, 3] = 0.
             elif args.command == 'joystick':
-                x_vel_cmd, y_vel_cmd, yaw_vel_cmd, stand_cmd = joystick_command.get_twist_and_stand_cmd()
+                if env.commands.shape[1] == 4:
+                    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = joystick_command.get_twist_cmd()
+                else:
+                    x_vel_cmd, y_vel_cmd, yaw_vel_cmd, stand_cmd = joystick_command.get_twist_and_stand_cmd()
                 env.commands[:, 0] = x_vel_cmd
                 env.commands[:, 1] = y_vel_cmd
                 env.commands[:, 2] = yaw_vel_cmd

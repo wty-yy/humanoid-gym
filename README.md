@@ -361,3 +361,8 @@ heading = [-3.14, 3.14]
     10. 最后有两个随机化没有实现，也没有打开`randomize_joint_pos_bias, randomize_euler_xy_zero_pos`
     11. 加入`get_torque_limit_from_mujoco, get_frictionloss_from_mujoco`函数，在`_process_dof_props`中使用，获取关节最大力矩（可能通过相对值计算也有相同效果？）
 3. `privileged_obs`加入上述域随机化信息，`single_num_privileged_obs: 74 -> 126`
+
+## 2025.4.4.
+kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是双脚摆动频率过高
+### kuavo42_legged_leju_ppo v1.1.1
+1. `cycle_time: 0.64 -> 1.2`
