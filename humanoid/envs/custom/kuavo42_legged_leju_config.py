@@ -105,8 +105,70 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
     
     class rewards(Kuavo42LeggedFineCfg.rewards):
         cycle_time = 1.2                # sec
+        base_height_target = 0.85
+        min_dist = 0.25
+        max_dist = 0.6
+        # put some settings here for LLM parameter tuning
+        target_joints_delta = [-0.25, 0.5, -0.25]  # leg, knee, foot
+        ref_joint_idxs = [2, 3, 4, 8, 9, 10]
+        target_feet_height = 0.06        # m
+        cycle_time = 0.64                # sec
+        # if true negative total rewards are clipped at zero (avoids early termination problems)
+        only_positive_rewards = True
+        # tracking reward = exp(error*sigma)
+        tracking_sigma = 5
+        max_contact_force = 550  # Forces above this value are penalized
+        
+        roll_joint_idxs = [0, 5, 6, 11]  # all rolling joints
+        yaw_joint_idxs = [1, 7]  # all yawing joints
+        pitch_joint_idxs = [2, 3, 4, 8, 9, 10]  # all pitch joints
+        unpitch_joint_idxs = roll_joint_idxs + yaw_joint_idxs
+
+        period_symmetric = {  # compute symmetric items in half period
+            "dof_pos": {"dim_num": 12, "sigma": 4., "scale": 1.},
+        }
+
+        x_tracking_sigmas = [6, 60]
+        y_tracking_sigmas = [6, 60]
+        yaw_tracking_sigmas = [6, 60]
+
+        foot_height = 0.045
+        torque_weights = [1, 1, 1, 1, 2, 3] * 2
+        dof_vel_weights = [3, 3, 1, 1, 1, 3] * 2
+
+        class scales:
+            joint_pos = 10
+            half_period = 2.
+            foot_slip = -2.
+            # foot_pos = 5.
+            feet_contact_forces = -0.05
+            tracking_x_lin_vel = 3
+            tracking_y_lin_vel = 3
+            tracking_ang_vel = 3
+            vel_mismatch_exp = 2
+            low_speed = 0.2
+            orientation = 1.
+            base_height = 0.5
+            base_acc = 0.5  # original 0.2
+
+            feet_contact_same = 1
+            feet_contact_number = 20
+
+            # reg
+            action_smoothness = -0.01  # original -0.002
+            torques = -5e-5  # original -1e-5
+            dof_vel = -5e-3  # original -5e-4
+            dof_acc = -1e-7  # original -1e-7
 
 class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):
         policy_class_name = 'LongShortActorCritic'
         experiment_name = 'Kuavo42_legged_leju_ppo'
+
+    class algorithm(Kuavo42LeggedFineCfgPPO.algorithm):
+        entropy_coef = 0.001
+        learning_rate = 1e-5
+        num_learning_epochs = 2
+        gamma = 0.994
+        lam = 0.9
+        num_mini_batches = 16

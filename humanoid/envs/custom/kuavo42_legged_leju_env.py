@@ -10,9 +10,39 @@ import torch
 from humanoid.envs import Kuavo42LeggedEnv
 
 from humanoid.utils.terrain import  HumanoidTerrain
+from collections import deque
 
 
 class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
+    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless):
+        super(Kuavo42LeggedEnv, self).__init__(cfg, sim_params, physics_engine, sim_device, headless)
+        self.last_feet_z = 0.05
+        self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
+        if hasattr(self.cfg.rewards, "low_speed_stance"):
+            self.low_speed_stance = torch.tensor(self.cfg.rewards.low_speed_stance, device=self.device).reshape(1, -1)
+        self.resample_cmd_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
+
+        self.build_period_history()
+        self.contact_history = deque(maxlen=round(self.cfg.rewards.cycle_time / self.dt))
+        for _ in range(self.contact_history.maxlen):
+            self.contact_history.append(torch.zeros((self.num_envs, 2), device=self.device))
+        self.vel_history = deque(maxlen=round(self.cfg.rewards.cycle_time / self.dt))
+        for _ in range(self.vel_history.maxlen):
+            self.vel_history.append(torch.zeros((self.num_envs, 3), device=self.device))
+
+        self.compute_observations()
+    
+    def build_period_history(self):
+        self.half_period_length = round(self.cfg.rewards.cycle_time / self.dt / 2)
+        self.period_history = {}
+        self.period_symmetric = self.cfg.rewards.period_symmetric
+        for name in self.period_symmetric:
+            self.period_history[name] = deque(maxlen=self.half_period_length)
+            dim_num = self.period_symmetric[name]["dim_num"]
+            for _ in range(self.half_period_length):
+                self.period_history[name].append(torch.zeros((self.num_envs, dim_num), device=self.device))
+
     def  _get_phase(self):
         cycle_time = self.cfg.rewards.cycle_time
         phase = self.episode_length_buf * self.dt / cycle_time
@@ -99,6 +129,12 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)  # N, T*K
         self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.env.c_frame_stack)], dim=1)
 
+        for name in self.period_symmetric:
+            self.period_history[name].append(self.get_period_symmetric_value(name).clone())
+        self.contact_history.append(self.contact_forces[:, self.feet_indices, 2])
+        self.vel_history.append(torch.cat([self.base_lin_vel[:, :2], self.base_ang_vel[:, 2:3]], dim=-1))
+        self.mean_vel = torch.mean(torch.stack([self.vel_history[i] for i in range(self.vel_history.maxlen)], dim=1), dim=1)
+
     def _resample_commands(self, env_ids):
         """ Randommly select commands of some environments
 
@@ -132,6 +168,8 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.commands[straight_env_ids, 0] = torch_rand_float(0, self.command_ranges["lin_vel_x"][1], (len(straight_env_ids), 1), device=self.device).squeeze(1)
         # random
         self.commands[random_env_ids, 4] = 0
+
+        self.resample_cmd_length_buf[env_ids] = 0
 
     def _get_noise_scale_vec(self, cfg):
         """ Sets a vector used to scale the noise added to the observations.
@@ -201,6 +239,7 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
 
         self.episode_length_buf += 1
         self.common_step_counter += 1
+        self.resample_cmd_length_buf += 1
     
         if self.cfg.domain_rand.push_robots:
             self.sample_random_push()
@@ -497,3 +536,114 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
     def _create_envs(self):
         self.com_displacement = torch.zeros(self.num_envs, 3, dtype=torch.float32, device=self.device, requires_grad=False)
         super()._create_envs()
+    
+    def get_period_symmetric_value(self, name):
+        dim_num = self.period_symmetric[name]["dim_num"]
+        if hasattr(self, name):
+            return getattr(self, name)[:, :dim_num].clone()
+        else:
+            raise ValueError(f"Period symmetric name {name} not recognised")
+    
+    # =========================== Rewards ========================== #
+    def _reward_joint_pos(self):
+        joint_pos = self.dof_pos.clone()
+        pos_target = self.ref_dof_pos.clone()
+        diff = joint_pos - pos_target
+
+        sigma = self.cfg.rewards.joint_pos_sigma * torch.ones(self.num_envs, device=self.device)
+        for idx in self.cfg.rewards.roll_joint_idxs:  # don't consider rolling joints when moving
+            diff[~self.commands[:, 4].bool(), idx] *= 0
+        diff[~self.commands[:, 4].bool(), 2] *= 0.5  # thigh pitch joint
+        diff[~self.commands[:, 4].bool(), 8] *= 0.5  # thigh pitch joint
+        rew = torch.exp(-sigma * torch.norm(diff, dim=1))
+        rew[self.is_pushing] = 1  # don't consider reward when pushing
+        ratio = torch.clip(self.resample_cmd_length_buf * self.dt / self.cfg.rewards.cycle_time, 0, 1)
+        rew = rew * ratio + (1 - ratio)
+        return rew
+    
+    def _reward_half_period(self):
+        reward = torch.zeros(self.num_envs, device=self.device)
+        max_reward = 0
+        for name in self.period_symmetric:
+            target = self.period_history[name][0].clone()
+            target[self.commands[:, 4].to(bool)] = self.get_period_symmetric_value(name)[self.commands[:, 4].to(bool)].clone()
+            target[:, :12] = torch.roll(target[:, :12], shifts=6, dims=1)
+            target[:, self.cfg.rewards.unpitch_joint_idxs] *= -1
+
+            diff = self.get_period_symmetric_value(name) - target
+            diff[:, self.cfg.rewards.unpitch_joint_idxs] *= 5
+            sigma = self.period_symmetric[name]["sigma"] * torch.ones(self.num_envs, device=self.device)
+            sigma[~(self.commands[:, 1:] == 0).all(dim=1)] = 0
+            rew = torch.exp(-sigma * torch.norm(diff, dim=1))
+            reward += rew * self.period_symmetric[name]["scale"]
+            max_reward += self.period_symmetric[name]["scale"]
+        reward[self.is_pushing] = max_reward
+        return reward
+
+    def _reward_feet_contact_forces(self):
+        contact_force = self.contact_forces[:, self.feet_indices, 2]
+        rew = (contact_force.sum(-1) - self.cfg.rewards.max_contact_force).clip(0, 400)
+        rew[self.episode_length_buf < 20] = 0
+        return rew
+    
+    def _reward_tracking_x_lin_vel(self):
+        x_vel_error = torch.abs(self.commands[:, 0] - self.mean_vel[:, 0])
+        rew = torch.zeros(self.num_envs, device=self.device)
+        for sigma in self.cfg.rewards.x_tracking_sigmas:
+            rew += torch.exp(-sigma * x_vel_error) / len(self.cfg.rewards.x_tracking_sigmas)
+        ref_instant_vel = self.commands[:, 0]
+        rew += torch.exp(-10 * torch.square(ref_instant_vel - self.base_lin_vel[:, 0]))
+        return rew / 2
+
+    def _reward_tracking_y_lin_vel(self):
+        y_vel_error = torch.abs(self.commands[:, 1] - self.mean_vel[:, 1])
+        rew = torch.zeros(self.num_envs, device=self.device)
+        for sigma in self.cfg.rewards.y_tracking_sigmas:
+            rew += torch.exp(-sigma * y_vel_error) / len(self.cfg.rewards.y_tracking_sigmas)
+        ref_instant_vel = self.commands[:, 1]
+        rew += torch.exp(-10 * torch.square(ref_instant_vel - self.base_lin_vel[:, 1]))
+        return rew / 2
+    
+    def _reward_tracking_ang_vel(self):
+        ang_vel_error = torch.abs(self.commands[:, 2] - self.mean_vel[:, 2])
+        rew = torch.zeros(self.num_envs, device=self.device)
+        for sigma in self.cfg.rewards.yaw_tracking_sigmas:
+            rew += torch.exp(-sigma * ang_vel_error) / len(self.cfg.rewards.yaw_tracking_sigmas)
+        ref_instant_vel = self.commands[:, 2]
+        rew += torch.exp(-10 * torch.square(ref_instant_vel - self.base_ang_vel[:, 2]))
+        return rew / 2
+
+    def _reward_base_height(self):
+        stance_mask = self.contact_forces[:, self.feet_indices, 2] > 100.
+        measured_heights = torch.sum(
+            self.rigid_state[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1) - self.cfg.rewards.foot_height
+        measured_heights[torch.isnan(measured_heights)] = 0
+        base_height = self.root_states[:, 2] - measured_heights
+        rew = torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 20)
+        return rew
+
+    def _reward_feet_contact_same(self):
+        contacts = torch.stack([self.contact_history[i] for i in range(len(self.contact_history))], dim=1)
+        mean_force = contacts.mean(dim=1)
+        diff1 = (mean_force[:, 0] - mean_force[:, 1])
+        diff2 = (contacts[:, -1] - contacts[:, -self.contact_history.maxlen // 2]).sum(-1)
+        rew1 = torch.exp(- 0.01 * diff1.abs())
+        rew2 = torch.exp(- 0.01 * diff2.abs())
+        return (rew1 + rew2) / 2
+    
+    def _reward_feet_contact_number(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        stance_mask = self._get_gait_phase()
+        reward = torch.where(contact == stance_mask, 0., -1.)
+        return torch.mean(reward, dim=1)
+
+    def _reward_torques(self):
+        weight = torch.tensor(self.cfg.rewards.torque_weights, device=self.device)
+        rew = torch.sum(torch.square(self.torques * weight), dim=1)
+        rew[self.is_pushing] /= 3
+        return rew
+    
+    def _reward_dof_vel(self):
+        weight = torch.tensor(self.cfg.rewards.dof_vel_weights, device=self.device)
+        rew = torch.sum(torch.square(self.dof_vel * weight), dim=1)
+        return rew

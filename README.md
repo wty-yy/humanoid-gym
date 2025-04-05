@@ -366,3 +366,23 @@ heading = [-3.14, 3.14]
 kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是双脚摆动频率过高
 ### kuavo42_legged_leju_ppo v1.1.1
 1. `cycle_time: 0.64 -> 1.2`
+
+## 2025.4.5.
+kuavo42_legged_leju_ppo v1.1.1训练效果还行，但是还是会原地站立抽搐，尝试复现所有reward部分
+### kuavo42_legged_leju_ppo v1.2
+1. `reward`部分
+    1. `joint_pos`：在原版joint_pos基础上加入`joint_pos_sigma=4`，按照cmd的已经重新采样时间对奖励进行加权
+    2. `half_period`：计算半个周期中，左右关节对称奖励，注意需要将除了俯仰之外的关节旋转进行对称，加入`period_symmetric`参数，表示需要考虑的对称参数
+    3. **无法实现**`_reward_foot_pos`：因为无法通过正向的动力学计算出当前的`ref_body_positions`，还需要本体高度和欧拉角等信息
+    4. `feet_contact_forces`：仅考虑z轴方向，超过最大接触力`max_contact_force=550`的惩罚，仅在当前`ep>=20`时开始计算
+    5. `tracking_x_lin_vel, tracking_y_lin_vel, tracking_ang_vel`：加入`[x,y,yaw]_tracking_sigmas`计算三种不同sigma奖励的平均，加入`vel_history`计算一个`cycle_time`中三种速度的平均值
+    6. `base_height`：修改stance_mask计算方式，通过两脚的接触力`>100`判断处于站立状态，修改计算奖励的sigma系数
+    7. `feet_contact_same`：双脚接触力比对，加入`contact_history`计算双脚接触地面的平均值，以及半个周期两脚的接触力大小
+    8. `feet_contact_number`：满足和stance_mask相同周期落地，原有的奖励形式变为惩罚形式，只有在错误周期落地给-1惩罚
+    9. `torques`：力矩惩罚，加入`torque_weights`对每个关节的力矩进行加权，对`is_pushing`状态下的惩罚减少`1/3`
+    10. `dof_vel`：速度惩罚，加入`dof_vel_weights`对每个速度进行加权
+2. PPO参数，对其
+    1. `learning_rate: 1e-3 -> 1e-5`
+    2. `num_learning_epochs: 5 -> 2`
+    3. `gamma: 0.99 -> 0.994`
+    4. `lam: 0.95 -> 0.9`

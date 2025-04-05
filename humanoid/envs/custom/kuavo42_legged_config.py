@@ -141,6 +141,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             heading = [-3.14, 3.14]
 
     class rewards:
+        joint_pos_sigma = 4.
         base_height_target = 0.85
         min_dist = 0.25
         max_dist = 0.6
