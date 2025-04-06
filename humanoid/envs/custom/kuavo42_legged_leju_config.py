@@ -8,8 +8,10 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         num_single_obs = 6 + 12 * 3 + 3 * 2 + 2
         num_observations = int(frame_stack * num_single_obs)
         c_frame_stack = 3
-        single_num_privileged_obs = 126
+        single_num_privileged_obs = 135
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+        gait_model_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/gait_sk120.pth'
+        scripts_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/scripts'
     
     class asset(Kuavo42LeggedFineCfg.asset):
         velocity_limit = [14, 14, 23, 14, 10, 10] * 2  # + [10] * 14
@@ -140,7 +142,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
             joint_pos = 10
             half_period = 2.
             foot_slip = -2.
-            # foot_pos = 5.
+            foot_pos = 5.
             feet_contact_forces = -0.05
             tracking_x_lin_vel = 3
             tracking_y_lin_vel = 3

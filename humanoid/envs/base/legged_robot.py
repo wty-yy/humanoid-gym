@@ -225,6 +225,7 @@ class LeggedRobot(BaseTask):
         self.base_quat[env_ids] = self.root_states[env_ids, 3:7]
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.projected_gravity[env_ids] = quat_rotate_inverse(self.base_quat[env_ids], self.gravity_vec[env_ids])
+        self.lin_acc_filter.reset(env_ids)
     
     def compute_reward(self):
         """ Compute rewards
@@ -481,12 +482,12 @@ class LeggedRobot(BaseTask):
         # create some wrapper tensors for different slices
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
-        self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
+        self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]  # shape: (num_envs, num_joints)
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
         self.base_quat = self.root_states[:, 3:7]
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
 
-        self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
+        self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: (num_envs, num_links, xyz axis)
         self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, -1, 13)
 
         # initialize some data used later on

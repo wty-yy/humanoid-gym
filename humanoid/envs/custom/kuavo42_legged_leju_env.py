@@ -7,10 +7,12 @@ from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi
 
 import torch
+import torch.nn as nn
 from humanoid.envs import Kuavo42LeggedEnv
 
 from humanoid.utils.terrain import  HumanoidTerrain
 from collections import deque
+from humanoid.utils.forward_kinematics import ForwardKinematics
 
 
 class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
@@ -18,11 +20,13 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         super(Kuavo42LeggedEnv, self).__init__(cfg, sim_params, physics_engine, sim_device, headless)
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
-        if hasattr(self.cfg.rewards, "low_speed_stance"):
-            self.low_speed_stance = torch.tensor(self.cfg.rewards.low_speed_stance, device=self.device).reshape(1, -1)
         self.resample_cmd_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.fk = ForwardKinematics(mjcf_path=self.cfg.asset.file.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR))
+        self.fk.to(self.device)
+
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
 
+        self.load_gait_model()
         self.build_period_history()
         self.contact_history = deque(maxlen=round(self.cfg.rewards.cycle_time / self.dt))
         for _ in range(self.contact_history.maxlen):
@@ -32,6 +36,22 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
             self.vel_history.append(torch.zeros((self.num_envs, 3), device=self.device))
 
         self.compute_observations()
+
+        scripts_path = cfg.env.scripts_path.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
+        self.is_ankle_pos_legal = torch.jit.load(os.path.join(scripts_path, "is_ankle_pos_legal.pt"))
+        self.joint_to_motor_position = torch.jit.load(os.path.join(scripts_path, "joint_to_motor_position.pt"))
+        self.get_joint_dumping_torque = torch.jit.load(os.path.join(scripts_path, "get_joint_dumping_torque.pt"))
+    
+    def load_gait_model(self):
+        self.gait_model = nn.Sequential(
+            nn.Linear(6, 64),
+            nn.SELU(),
+            nn.Linear(64, 64),
+            nn.SELU(),
+            nn.Linear(64, 12 + 14 + 9)
+        ).to(self.device)
+        self.gait_model.load_state_dict(
+            torch.load(self.cfg.env.gait_model_path.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)))
     
     def build_period_history(self):
         self.half_period_length = round(self.cfg.rewards.cycle_time / self.dt / 2)
@@ -50,14 +70,46 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         return phase
 
     def _get_gait_phase(self):
-        phase = self._get_phase()
-        sin_pos = torch.sin(2 * torch.pi * phase)
         stance_mask = torch.zeros((self.num_envs, 2), device=self.device)
-        stance_mask[:, 0] = sin_pos >= 0
-        stance_mask[:, 1] = sin_pos < 0
-        stance_mask[torch.abs(sin_pos) < 0.1] = 1
+        stance_mask[:, 0] = self.ref_body_positions["leg_l6_link"][:, 2] < self.cfg.rewards.foot_height
+        stance_mask[:, 1] = self.ref_body_positions["leg_r6_link"][:, 2] < self.cfg.rewards.foot_height
         stance_mask[self.commands[:, 4].to(bool)] = 1
         return stance_mask
+
+    def get_neural_ref_dof_pos(self):
+        phase = self._get_phase()
+        inputs = torch.zeros((self.num_envs, 6), device=self.device)
+        inputs[:, 0] = torch.sin(2 * torch.pi * phase)
+        inputs[:, 1] = torch.cos(2 * torch.pi * phase)
+        inputs[:, 2] = self.cfg.rewards.cycle_time
+        inputs[:, 3:6] = self.commands[:, :3]
+        outputs = self.gait_model(inputs)
+
+        self.ref_dof_pos = outputs[:, :self.num_dof]
+        self.ref_euler_xy = outputs[:, self.num_dof:self.num_dof + 2]
+        self.ref_height = outputs[:, self.num_dof + 2]
+        self.ref_lin_vel = outputs[:, self.num_dof + 3:self.num_dof + 6]
+        self.ref_ang_vel = outputs[:, self.num_dof + 6:self.num_dof + 9]
+
+        self.ref_dof_pos[self.commands[:, 4].to(bool)] = self.default_dof_pos
+        self.ref_euler_xy[self.commands[:, 4].to(bool), 0] = 0
+        self.ref_euler_xy[self.commands[:, 4].to(bool), 1] = 0.05
+        self.ref_height[self.commands[:, 4].to(bool)] = self.cfg.init_state.pos[-1]
+        self.ref_lin_vel[self.commands[:, 4].to(bool)] = 0
+        self.ref_ang_vel[self.commands[:, 4].to(bool)] = 0
+
+    def get_ref_position_rotation(self):
+        qpos = torch.zeros(self.num_envs, 7 + self.num_dofs, device=self.device)
+        qpos[:, :2] = self.root_states[:, :2]
+        qpos[:, 2] = self.ref_height
+        qpos[:, 3:7] = quat_from_euler_xyz(self.ref_euler_xy[:, 0], self.ref_euler_xy[:, 1], self.base_euler_xyz[:, 2])
+        qpos[:, 7:7 + self.num_dofs] = self.ref_dof_pos
+        self.ref_body_positions, self.ref_body_rotations = self.fk(qpos, with_root=True)
+
+    def compute_ref_state(self):
+        self.get_neural_ref_dof_pos()
+        self.get_ref_position_rotation()
+        self.ref_action = 2 * self.ref_dof_pos
 
     def compute_observations(self):
 
@@ -98,6 +150,10 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
             self.joint_armature_coeffs,  # 12
             self.kp_factors,  # 12
             self.kd_factors,  # 12
+            self.ref_euler_xy,  # 2
+            self.ref_height.reshape(-1, 1),  # 1
+            self.ref_lin_vel,  # 3
+            self.ref_ang_vel  # 3
         ), dim=-1)
 
         base_euler_xy = self.base_euler_xyz[:, :2]
@@ -172,15 +228,6 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.resample_cmd_length_buf[env_ids] = 0
 
     def _get_noise_scale_vec(self, cfg):
-        """ Sets a vector used to scale the noise added to the observations.
-            [NOTE]: Must be adapted when changing the observations structure
-
-        Args:
-            cfg (Dict): Environment config file
-
-        Returns:
-            [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
-        """
         noise_vec = torch.zeros(
             self.cfg.env.num_single_obs, device=self.device)
         self.add_noise = self.cfg.noise.add_noise
@@ -227,6 +274,11 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.random_force_value[push_idx] /= (self.random_force_length[push_idx] * self.dt).reshape(-1, 1)
 
         # print(self.random_force_length[push_idx], self.random_force_value[push_idx])
+    
+    def check_termination(self):
+        super().check_termination()
+        ankle_illegal = (~self.is_ankle_pos_legal(self.dof_pos[:, 4:6])) | (~self.is_ankle_pos_legal(self.dof_pos[:, 10:12]))
+        self.reset_buf |= ankle_illegal
 
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
@@ -435,22 +487,13 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         return props
 
     def _compute_torques(self, actions):
-        """ Compute torques from actions.
-            Actions can be interpreted as position or velocity targets given to a PD controller, or directly as scaled torques.
-            [NOTE]: torques must have the same dimension as the number of DOFs, even if some DOFs are not actuated.
-
-        Args:
-            actions (torch.Tensor): Actions
-
-        Returns:
-            [torch.Tensor]: Torques sent to the simulation
-        """
         actions_scaled = actions * self.cfg.control.action_scale
         p_gains = self.p_gains * self.kp_factors
         d_gains = self.d_gains * self.kd_factors
 
         p_torque = p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos)
-        d_torque = - d_gains * self.dof_vel
+        motor_pos = self.joint_to_motor_position(self.dof_pos)
+        d_torque = - self.get_joint_dumping_torque(self.dof_pos, motor_pos, d_gains, self.dof_vel)
         torques = p_torque + d_torque
 
         if self.cfg.domain_rand.randomize_motor_strength:
@@ -584,6 +627,20 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         contact_force = self.contact_forces[:, self.feet_indices, 2]
         rew = (contact_force.sum(-1) - self.cfg.rewards.max_contact_force).clip(0, 400)
         rew[self.episode_length_buf < 20] = 0
+        return rew
+
+    def _reward_foot_pos(self):
+        stance_mask = self.contact_forces[:, self.feet_indices, 2] > 100.
+        measured_heights = torch.sum(
+            self.rigid_state[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1) - self.cfg.rewards.foot_height
+        measured_heights[torch.isnan(measured_heights)] = 0
+
+        left_pos_diff = self.rigid_state[:, 6, :3] - self.ref_body_positions["leg_l6_link"]
+        left_pos_diff[:, 2] -= measured_heights
+        right_pos_diff = self.rigid_state[:, 12, :3] - self.ref_body_positions["leg_r6_link"]
+        right_pos_diff[:, 2] -= measured_heights
+        rew = torch.exp(-torch.norm(torch.cat([left_pos_diff, right_pos_diff], dim=-1), dim=1) * 20)
+        rew[self.is_pushing] = 1
         return rew
     
     def _reward_tracking_x_lin_vel(self):

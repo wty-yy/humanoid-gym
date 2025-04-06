@@ -386,3 +386,22 @@ kuavo42_legged_leju_ppo v1.1.1训练效果还行，但是还是会原地站立�
     2. `num_learning_epochs: 5 -> 2`
     3. `gamma: 0.99 -> 0.994`
     4. `lam: 0.95 -> 0.9`
+
+## 2025.4.6.
+### kuavo42_legged_leju_ppo v1.3
+v1.2的奖励更新后无法训练出正常的模型，考虑继续复现将leju的全部步态模型也加入训练中
+
+1. 加入`ForwardKinematics`计算正向运动学信息
+2. 加入`load_gait_model`获取步态模型，注意：`gait_model`仅需要cmd指令，sin cos phase即可返回全身的root_state和joint_pos信息
+3. 修改`_get_gait_phase`直接通过ref_body_positions的腿部关节高度来判断是否stand
+4. 加入`get_neural_ref_dof_pos`通过`gait_model`获取参考姿态
+5. 加入`get_ref_position_rotation`通过正向运动学获取姿态信息
+6. 修改`compute_ref_state`分别调用`get_neural_ref_dof_pos, get_ref_position_rotation`两个函数
+7. 加入三个模型
+    1. `is_ankle_pos_legal`判断terminal，两脚是否打岔
+    2. `joint_to_motor_position`将脚踝的joint转为两个并联机构的电机位置
+    3. `get_joint_dumping_torque`计算电机的转速
+8. 基于`is_ankle_pos_legal`修改`check_termination`
+9. 基于`joint_to_motor_position, get_joint_dumping_torque`修改`_compute_torques`计算速度力矩的方法
+10. 在`LeggedRobot.reset_idx`中加入对`lin_acc_filter.reset()`
+11. 基于`self.ref_body_positions["leg_l6_link"]`计算`_reward_foot_pos`奖励
