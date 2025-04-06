@@ -8,16 +8,16 @@ from isaacgym import gymtorch, gymapi
 
 import torch
 import torch.nn as nn
-from humanoid.envs import Kuavo42LeggedEnv
+from humanoid.envs import LeggedRobot
 
 from humanoid.utils.terrain import  HumanoidTerrain
 from collections import deque
 from humanoid.utils.forward_kinematics import ForwardKinematics
 
 
-class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
+class Kuavo42LeggedLejuEnv(LeggedRobot):
     def __init__(self, cfg, sim_params, physics_engine, sim_device, headless):
-        super(Kuavo42LeggedEnv, self).__init__(cfg, sim_params, physics_engine, sim_device, headless)
+        super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
         self.resample_cmd_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
@@ -110,6 +110,26 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.get_neural_ref_dof_pos()
         self.get_ref_position_rotation()
         self.ref_action = 2 * self.ref_dof_pos
+    
+    def create_sim(self):
+        """ Creates simulation, terrain and evironments
+        """
+        self.up_axis_idx = 2  # 2 for z, 1 for y -> adapt gravity accordingly
+        self.sim = self.gym.create_sim(
+            self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
+        mesh_type = self.cfg.terrain.mesh_type
+        if mesh_type in ['heightfield', 'trimesh']:
+            self.terrain = HumanoidTerrain(self.cfg.terrain, self.num_envs)
+        if mesh_type == 'plane':
+            self._create_ground_plane()
+        elif mesh_type == 'heightfield':
+            self._create_heightfield()
+        elif mesh_type == 'trimesh':
+            self._create_trimesh()
+        elif mesh_type is not None:
+            raise ValueError(
+                "Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
+        self._create_envs()
 
     def compute_observations(self):
 
@@ -125,7 +145,7 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.command_input = torch.cat(
             (sin_pos, cos_pos, self.commands[:, :4]), dim=1)
         
-        q = (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
+        q = (self.dof_pos - self.default_dof_pos + self.joint_pos_bias) * self.obs_scales.dof_pos
         dq = self.dof_vel * self.obs_scales.dof_vel
         
         diff = self.dof_pos - self.ref_dof_pos
@@ -146,6 +166,7 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
             contact_mask,  # 2
             self.com_displacement,  # 3
             self.restitution_coeffs,  # 1
+            self.joint_pos_bias,  # 12
             self.joint_friction_coeffs,  # 12
             self.joint_armature_coeffs,  # 12
             self.kp_factors,  # 12
@@ -204,6 +225,10 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         else:
             self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        
+        # set small commands to zero
+        self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > self.cfg.commands.min_lin_vel).unsqueeze(1)
+        self.commands[env_ids, 2] *= (torch.abs(self.commands[env_ids, 2]) > self.cfg.commands.min_ang_vel)
 
         num_standing_envs = int(self.cfg.commands.rel_standing_envs * len(env_ids))
         num_marking_envs = int(self.cfg.commands.rel_marking_envs * len(env_ids))
@@ -226,6 +251,15 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         self.commands[random_env_ids, 4] = 0
 
         self.resample_cmd_length_buf[env_ids] = 0
+
+    def _reset_dofs(self, env_ids):
+        self.dof_pos[env_ids] = self.default_dof_pos # + torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
+        self.dof_vel[env_ids] = 0.
+
+        env_ids_int32 = env_ids.to(dtype=torch.int32)
+        self.gym.set_dof_state_tensor_indexed(self.sim,
+                                              gymtorch.unwrap_tensor(self.dof_state),
+                                              gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
     def _get_noise_scale_vec(self, cfg):
         noise_vec = torch.zeros(
@@ -623,6 +657,48 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         reward[self.is_pushing] = max_reward
         return reward
 
+    def _reward_feet_distance(self):
+        foot_pos = self.rigid_state[:, self.feet_indices, :2]
+        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+        fd = self.cfg.rewards.min_dist
+        max_df = self.cfg.rewards.max_dist
+        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
+        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        rew = (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+        return rew
+
+    def _reward_knee_distance(self):
+        foot_pos = self.rigid_state[:, self.knee_indices, :2]
+        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+        fd = self.cfg.rewards.min_dist
+        max_df = self.cfg.rewards.max_dist / 2
+        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
+        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+
+    def _reward_foot_slip(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        foot_speed_norm = torch.norm(self.rigid_state[:, self.feet_indices, 7:9], dim=2)
+        rew = torch.sqrt(foot_speed_norm)
+        rew *= contact
+        return torch.sum(rew, dim=1)
+
+    def _reward_feet_air_time(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+        stance_mask = self._get_gait_phase()
+        self.contact_filt = torch.logical_or(torch.logical_or(contact, stance_mask), self.last_contacts)
+        self.last_contacts = contact
+        first_contact = (self.feet_air_time > 0.) * self.contact_filt
+        self.feet_air_time += self.dt
+        air_time = self.feet_air_time.clamp(0, 0.5) * first_contact
+        self.feet_air_time *= ~self.contact_filt
+        return air_time.sum(dim=1)
+
+    def _reward_orientation(self):
+        quat_mismatch = torch.exp(-torch.sum(torch.abs(self.base_euler_xyz[:, :2]), dim=1) * 10)
+        orientation = torch.exp(-torch.norm(self.projected_gravity[:, :2], dim=1) * 20)
+        return (quat_mismatch + orientation) / 2
+
     def _reward_feet_contact_forces(self):
         contact_force = self.contact_forces[:, self.feet_indices, 2]
         rew = (contact_force.sum(-1) - self.cfg.rewards.max_contact_force).clip(0, 400)
@@ -670,6 +746,53 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         rew += torch.exp(-10 * torch.square(ref_instant_vel - self.base_ang_vel[:, 2]))
         return rew / 2
 
+    def _reward_feet_clearance(self):
+        # Compute feet contact mask
+        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+    
+        # Get the z-position of the feet and compute the change in z-position
+        feet_z = self.rigid_state[:, self.feet_indices, 2] - 0.05
+        delta_z = feet_z - self.last_feet_z
+        self.feet_height += delta_z
+        self.last_feet_z = feet_z
+    
+        # Compute swing mask
+        swing_mask = 1 - self._get_gait_phase()
+    
+        # feet height should be closed to target feet height at the peak
+        rew_pos = torch.abs(self.feet_height - self.cfg.rewards.target_feet_height) < 0.01
+        rew_pos = torch.sum(rew_pos * swing_mask, dim=1)
+        self.feet_height *= ~contact
+        return rew_pos
+
+    def _reward_low_speed(self):
+        # Calculate the absolute value of speed and command for comparison
+        absolute_speed = torch.abs(self.base_lin_vel[:, 0])
+        absolute_command = torch.abs(self.commands[:, 0])
+
+        # Define speed criteria for desired range
+        speed_too_low = absolute_speed < 0.5 * absolute_command
+        speed_too_high = absolute_speed > 1.2 * absolute_command
+        speed_desired = ~(speed_too_low | speed_too_high)
+
+        # Check if the speed and command directions are mismatched
+        sign_mismatch = torch.sign(
+            self.base_lin_vel[:, 0]) != torch.sign(self.commands[:, 0])
+
+        # Initialize reward tensor
+        reward = torch.zeros_like(self.base_lin_vel[:, 0])
+
+        # Assign rewards based on conditions
+        # Speed too low
+        reward[speed_too_low] = -1.0
+        # Speed too high
+        reward[speed_too_high] = 0.
+        # Speed within desired range
+        reward[speed_desired] = 1.2
+        # Sign mismatch has the highest priority
+        reward[sign_mismatch] = -2.0
+        return reward * (self.commands[:, 0].abs() > 0.1)
+
     def _reward_base_height(self):
         stance_mask = self.contact_forces[:, self.feet_indices, 2] > 100.
         measured_heights = torch.sum(
@@ -678,6 +801,34 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         base_height = self.root_states[:, 2] - measured_heights
         rew = torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 20)
         return rew
+
+    def _reward_base_acc(self):
+        root_acc = self.last_root_vel - self.root_states[:, 7:13]
+        rew = torch.exp(-torch.norm(root_acc, dim=1) * 3)
+        return rew
+
+    def _reward_vel_mismatch_exp(self):
+        lin_mismatch = torch.exp(-torch.square(self.base_lin_vel[:, 2]) * 10)
+        ang_mismatch = torch.exp(-torch.norm(self.base_ang_vel[:, :2], dim=1) * 5.)
+
+        c_update = (lin_mismatch + ang_mismatch) / 2.
+
+        return c_update
+
+    def _reward_track_vel_hard(self):
+        # Tracking of linear velocity commands (xy axes)
+        lin_vel_error = torch.norm(
+            self.commands[:, :2] - self.base_lin_vel[:, :2], dim=1)
+        lin_vel_error_exp = torch.exp(-lin_vel_error * 10)
+
+        # Tracking of angular velocity commands (yaw)
+        ang_vel_error = torch.abs(
+            self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error_exp = torch.exp(-ang_vel_error * 10)
+
+        linear_error = 0.2 * (lin_vel_error + ang_vel_error)
+
+        return (lin_vel_error_exp + ang_vel_error_exp) / 2. - linear_error
 
     def _reward_feet_contact_same(self):
         contacts = torch.stack([self.contact_history[i] for i in range(len(self.contact_history))], dim=1)
@@ -704,3 +855,14 @@ class Kuavo42LeggedLejuEnv(Kuavo42LeggedEnv):
         weight = torch.tensor(self.cfg.rewards.dof_vel_weights, device=self.device)
         rew = torch.sum(torch.square(self.dof_vel * weight), dim=1)
         return rew
+
+    def _reward_dof_acc(self):
+        return torch.sum(torch.square((self.dof_vel - self.last_dof_vel) / self.dt), dim=1)
+
+    def _reward_action_smoothness(self):
+        term_1 = torch.sum(torch.square(
+            self.last_actions - self.actions), dim=1)
+        term_2 = torch.sum(torch.square(
+            self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
+        term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
+        return term_1 + term_2 + term_3

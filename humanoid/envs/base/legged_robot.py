@@ -170,6 +170,7 @@ class LeggedRobot(BaseTask):
         else:
             self.reset_buf = (self.root_states[:, 2] - torch.min(self.rigid_state[:, self.feet_indices, 2], dim=1)[0]) < self.cfg.asset.terminate_base_height 
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
+        self.reset_buf |= torch.isnan(self.dof_pos).any(dim=1)
         self.reset_buf |= self.time_out_buf
 
     def reset_idx(self, env_ids):
@@ -237,6 +238,7 @@ class LeggedRobot(BaseTask):
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
             rew = self.reward_functions[i]() * self.reward_scales[name]
+            rew[torch.isnan(rew)] = 0
             self.rew_buf += rew
             self.episode_sums[name] += rew
         if self.cfg.rewards.only_positive_rewards:

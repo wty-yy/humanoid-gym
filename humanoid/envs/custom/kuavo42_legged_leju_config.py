@@ -1,5 +1,6 @@
 import numpy as np
 from humanoid.envs import Kuavo42LeggedFineCfg, Kuavo42LeggedFineCfgPPO
+from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
 class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
@@ -8,7 +9,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         num_single_obs = 6 + 12 * 3 + 3 * 2 + 2
         num_observations = int(frame_stack * num_single_obs)
         c_frame_stack = 3
-        single_num_privileged_obs = 135
+        single_num_privileged_obs = 147
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         gait_model_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/gait_sk120.pth'
         scripts_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/scripts'
@@ -28,14 +29,16 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         clip_observations = 18.
         clip_actions = 18.
     
-    class commands(Kuavo42LeggedFineCfg.commands):
+    class commands(LeggedRobotCfg.commands):
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading, stance
         num_commands = 5
         resampling_time = 8.  # time before command are changed[s]
         heading_command = False  # if true: compute ang vel command from heading error
-        rel_standing_envs = 0.1
+        rel_standing_envs = 0.3
         rel_marking_envs = 0.1
         rel_straight_envs = 0.4
+        min_lin_vel = 0.
+        min_ang_vel = 0.
 
         class ranges:
             lin_vel_x = [-0.4, 1.0]   # min max [m/s]
@@ -84,7 +87,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         randomize_joint_armature = True  # 转动惯量
         joint_armature_range = [0.5, 1.5]
 
-        push_robots = True  # 连续推力
+        push_robots = False  # 连续推力
         push_interval_s = 6.
         push_length_s = [0.05, 0.5]
         max_push = [15, 15, 15, 5, 5, 5]
@@ -95,7 +98,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         randomize_kd = True  # kd值
         kd_range = [0.8, 1.2]
 
-        randomize_joint_pos_bias = False
+        randomize_joint_pos_bias = True
         joint_pos_bias_range = [-0.05, 0.05]
 
         randomize_euler_xy_zero_pos = False
@@ -166,11 +169,12 @@ class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):
         policy_class_name = 'LongShortActorCritic'
         experiment_name = 'Kuavo42_legged_leju_ppo'
+        wandb_project = 'HumanoidGym-Kuavo'
 
     class algorithm(Kuavo42LeggedFineCfgPPO.algorithm):
         entropy_coef = 0.001
-        learning_rate = 1e-5
-        num_learning_epochs = 2
-        gamma = 0.994
-        lam = 0.9
-        num_mini_batches = 16
+        learning_rate = 1e-3
+        num_learning_epochs = 5
+        gamma = 0.99
+        lam = 0.95
+        num_mini_batches = 4

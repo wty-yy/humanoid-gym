@@ -386,6 +386,7 @@ kuavo42_legged_leju_ppo v1.1.1训练效果还行，但是还是会原地站立�
     2. `num_learning_epochs: 5 -> 2`
     3. `gamma: 0.99 -> 0.994`
     4. `lam: 0.95 -> 0.9`
+    5. `num_mini_batches: 4 -> 16`
 
 ## 2025.4.6.
 ### kuavo42_legged_leju_ppo v1.3
@@ -405,3 +406,61 @@ v1.2的奖励更新后无法训练出正常的模型，考虑继续复现将leju
 9. 基于`joint_to_motor_position, get_joint_dumping_torque`修改`_compute_torques`计算速度力矩的方法
 10. 在`LeggedRobot.reset_idx`中加入对`lin_acc_filter.reset()`
 11. 基于`self.ref_body_positions["leg_l6_link"]`计算`_reward_foot_pos`奖励
+
+### kuavo42_legged_leju_ppo v1.3.1
+v1.3训练出来的模型只能站在原地不动，发现一些和最新beta版本不同的地方没有修改，加入修改
+1. `push_robots: True -> False`
+2. `randomize_joint_pos_bias: False -> True`，在`compute_observation`中加上`joint_pos_bias`的偏置
+3. 回调PPO参数，对其
+    1. `learning_rate: 1e-5 -> 1e-3 1e-5`
+    2. `num_learning_epochs: 2 -> 5`
+    3. `gamma: 0.994 -> 0.99`
+    4. `lam: 0.9 -> 0.95`
+    5. `num_mini_batches: 16 -> 4`
+4. `rel_standing_envs: 0.1 -> 0.3`
+
+对比乐聚官方函数`KuavoS40FreeEnv`类的一致性：
+- [x] `__init__`，修改副本`LeggedRobot`添加`lin_acc_filter`初始化，并添加上`kuavo_s42_env.py`加入的模型读取
+- [x] `build_period_history`
+- [x] `load_gait_model`
+- [x] `_push_robots`
+- [x] `_get_phase`
+- [x] `_get_gait_phase`
+- [x] `get_neural_ref_dof_pos`
+- [x] `get_ref_position_rotation`
+- [x] `compute_ref_state`
+- [x] `create_sim`
+- [x] `_get_noise_scale_vec`
+- [x] `step`，完全重写`LeggedRobot`的step
+- [x] `compute_observations`
+- [x] `get_period_symmetric_value`
+- [x] `reset_idx`，修改部分`LeggedRobot`添加`lin_acc_filter.reset`
+- [x] `_resample_commands`
+- [x] `_compute_torques`被`kuavo_s42_env.py`重构
+- [x] `_reward_joint_pos`
+- [x] `_reward_foot_pos`
+- [x] `_reward_half_period`
+- [x] `_reward_feet_distance`
+- [x] `_reward_knee_distance`
+- [x] `_reward_foot_slip`
+- [x] `_reward_feet_air_time`
+- [x] `_reward_feet_contact_number`
+- [x] `_reward_feet_contact_same`
+- [x] `_reward_orientation`
+- [x] `_reward_feet_contact_forces`
+- [x] `_reward_base_height`
+- [x] `_reward_base_acc`
+- [x] `_reward_vel_mismatch_exp`
+- [x] `_reward_track_vel_hard`
+- [x] `_reward_tracking_x_lin_vel`
+- [x] `_reward_tracking_y_lin_vel`
+- [x] `_reward_tracking_ang_vel`
+- [x] `_reward_feet_clearance`
+- [x] `_reward_low_speed`
+- [x] `_reward_torques`
+- [x] `_reward_dof_vel`
+- [x] `_reward_dof_acc`
+- [x] `_reward_action_smoothness`
+
+`LeggedRobot`中函数的对应，大部分均在`Kuavo42LeggedLejuEnv`中实现，过多修改，这里只写重要的位置
+- [x] `_reset_dofs`中关闭默认的随机化

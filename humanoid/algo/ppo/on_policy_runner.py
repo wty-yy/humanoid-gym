@@ -96,7 +96,7 @@ class OnPolicyRunner:
         if self.log_dir is not None and self.writer is None:
             if self.cfg.get('wandb'):
                 wandb.init(
-                    project="HumanoidGym",
+                    project=self.cfg.get('wandb_project', "HumanoidGym"),
                     sync_tensorboard=True,
                     name=self.wandb_run_name,
                     config=self.all_cfg,
