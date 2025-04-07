@@ -85,11 +85,12 @@ class Kuavo42LeggedLejuEnv(LeggedRobot):
         inputs[:, 3:6] = self.commands[:, :3]
         outputs = self.gait_model(inputs)
 
+        all_num_dof = 26
         self.ref_dof_pos = outputs[:, :self.num_dof]
-        self.ref_euler_xy = outputs[:, self.num_dof:self.num_dof + 2]
-        self.ref_height = outputs[:, self.num_dof + 2]
-        self.ref_lin_vel = outputs[:, self.num_dof + 3:self.num_dof + 6]
-        self.ref_ang_vel = outputs[:, self.num_dof + 6:self.num_dof + 9]
+        self.ref_euler_xy = outputs[:, all_num_dof:all_num_dof + 2]
+        self.ref_height = outputs[:, all_num_dof + 2]
+        self.ref_lin_vel = outputs[:, all_num_dof + 3:all_num_dof + 6]
+        self.ref_ang_vel = outputs[:, all_num_dof + 6:all_num_dof + 9]
 
         self.ref_dof_pos[self.commands[:, 4].to(bool)] = self.default_dof_pos
         self.ref_euler_xy[self.commands[:, 4].to(bool), 0] = 0

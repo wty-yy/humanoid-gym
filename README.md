@@ -464,3 +464,6 @@ v1.3训练出来的模型只能站在原地不动，发现一些和最新beta版
 
 `LeggedRobot`中函数的对应，大部分均在`Kuavo42LeggedLejuEnv`中实现，过多修改，这里只写重要的位置
 - [x] `_reset_dofs`中关闭默认的随机化
+
+### kuavo42_legged_leju_ppo v1.3.2
+1. 修复BUG: 发现`gait_model`输出是按照26自由度输出的信息，而我按照12自由度进行错误划分
