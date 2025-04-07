@@ -467,3 +467,11 @@ v1.3训练出来的模型只能站在原地不动，发现一些和最新beta版
 
 ### kuavo42_legged_leju_ppo v1.3.2
 1. 修复BUG: 发现`gait_model`输出是按照26自由度输出的信息，而我按照12自由度进行错误划分
+
+## 2025.4.7.
+### kuavo42_legged_leju_ppo v1.3.3
+1. 发现一些BUG: `foot_height: 0.045 -> 0.07`, `max_contact_force: 550 -> 600`
+2. `init_state`和C++版本的也有一些区别
+3. 将`Kuavo42LeggedLejuCfg`直接继承`LeggedRobotCfg`
+4. 发现`compute_observations`中`self.cfg.terrain.measure_heights`的bug，已经错误将`obs_buf`改成了`privileged_obs_buf`
+5. 还发现config中`measure_heights: False -> True`

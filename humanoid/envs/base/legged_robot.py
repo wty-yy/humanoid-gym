@@ -517,7 +517,7 @@ class LeggedRobot(BaseTask):
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
         if self.cfg.terrain.measure_heights:
             self.height_points = self._init_height_points()
-        self.measured_heights = 0
+        self.measured_heights = torch.zeros((self.num_envs, self.num_height_points), device=self.device)
 
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)

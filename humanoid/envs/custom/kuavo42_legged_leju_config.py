@@ -1,21 +1,83 @@
 import numpy as np
+from itertools import product
 from humanoid.envs import Kuavo42LeggedFineCfg, Kuavo42LeggedFineCfgPPO
 from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
+class Kuavo42LeggedLejuCfg(LeggedRobotCfg):
     class env(Kuavo42LeggedFineCfg.env):
         frame_stack = 100
         num_single_obs = 6 + 12 * 3 + 3 * 2 + 2
         num_observations = int(frame_stack * num_single_obs)
         c_frame_stack = 3
-        single_num_privileged_obs = 147
+        single_num_privileged_obs = 162
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+
+        num_actions = 12
+        num_envs = 4096
+        episode_length_s = 24  # episode length in seconds
+        use_ref_actions = False  # speed up training by using reference actions
+
         gait_model_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/gait_sk120.pth'
         scripts_path = '{LEGGED_GYM_ROOT_DIR}/resources/robots/kuavo_s42/scripts'
     
+    class safety:
+        # safety factors
+        pos_limit = 1.0
+        vel_limit = 1.0
+        torque_limit = 1.0
+    
     class asset(Kuavo42LeggedFineCfg.asset):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/biped_s42_fine/xml/biped_s42_only_lower_body.xml'
+
+        name = "kuavo"
+        foot_names = ["leg_r6_link", "leg_l6_link"]
+        knee_names = ["leg_r4_link", "leg_l4_link"]
+
+        terminate_after_contacts_on = [
+            'base_link',
+            'leg_r1_link', 'leg_l1_link',
+            'leg_r2_link', 'leg_l2_link',
+            'leg_r3_link', 'leg_l3_link',
+            'leg_r4_link', 'leg_l4_link',
+            'leg_r5_link', 'leg_l5_link',
+        ]
+        penalize_contacts_on =[
+            'base_link',
+            'leg_r1_link', 'leg_l1_link',
+            'leg_r2_link', 'leg_l2_link',
+            'leg_r3_link', 'leg_l3_link',
+            'leg_r4_link', 'leg_l4_link',
+            'leg_r5_link', 'leg_l5_link',
+        ]
+        self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
+        flip_visual_attachments = False
+        replace_cylinder_with_capsule = False
+        fix_base_link = False
+
         velocity_limit = [14, 14, 23, 14, 10, 10] * 2  # + [10] * 14
+
+    class terrain(LeggedRobotCfg.terrain):
+        mesh_type = 'plane'
+        # mesh_type = 'trimesh'
+        curriculum = False
+        # rough terrain only:
+        measure_heights = True
+        # mujoco use the max friction of two contact body, so here is actually the "min friction"
+        static_friction = 0
+        dynamic_friction = 0
+        terrain_length = 8.
+        terrain_width = 8.
+        num_rows = 5  # number of terrain rows (levels)
+        num_cols = 5  # number of terrain cols (types)
+        max_init_terrain_level = 10  # starting curriculum state
+        # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
+        terrain_proportions = [0.2, 0.4, 0., 0.2, 0.2, 0, 0]
+        # terrain_proportions = [0.0, 0., 0.0, .0, 1.0, 0, 0]
+        restitution = 0.
+
+        measured_points_x = [-0.3, -0.15, 0., 0.15, 0.3]
+        measured_points_y = [-0.15, 0., 0.15]
 
     class normalization:
         class obs_scales:
@@ -44,7 +106,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
             lin_vel_x = [-0.4, 1.0]   # min max [m/s]
             lin_vel_y = [-0.2, 0.2]   # min max [m/s]
             ang_vel_yaw = [-0.4, 0.4] # min max [rad/s]
-            heading = [-3.14, 3.14]
+            heading = [0, 0]
     
     class noise:
         add_noise = True
@@ -59,8 +121,45 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
             quat = 0.03
             height_measurements = 0.1
 
-    class control(Kuavo42LeggedFineCfg.control):
+    class control(LeggedRobotCfg.control):
+        # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
+        # decimation: Number of control action updates @ sim DT per policy DT
+        decimation = 10  # 100hz
+
+        # PD Drive parameters:
+        stiffness, damping = {}, {}
+
+        for lr in ['l', 'r']:
+            for idx, value in zip(range(1, 7), [60.0, 60.0, 60.0, 60.0, 30.0, 15.0]):
+                stiffness[f'leg_{lr}{idx}_joint'] = value
+        for lr, idx in product(['l', 'r'], range(1, 8)):
+            stiffness[f'zarm_{lr}{idx}_joint'] = 15.0
+
+        for lr in ['l', 'r']:
+            for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
+                damping[f'leg_{lr}{idx}_joint'] = value
+        for lr, idx in product(['l', 'r'], range(1, 8)):
+            damping[f'zarm_{lr}{idx}_joint'] = 3
+
+    class sim(LeggedRobotCfg.sim):
+        dt = 0.001  # 1000 Hz
+        substeps = 1  # 2
+        up_axis = 1  # 0 is y, 1 is z
+
+        class physx(LeggedRobotCfg.sim.physx):
+            num_threads = 10
+            solver_type = 1  # 0: pgs, 1: tgs
+            num_position_iterations = 4
+            num_velocity_iterations = 1
+            contact_offset = 0.01  # [m]
+            rest_offset = 0.0  # [m]
+            bounce_threshold_velocity = 0.1  # [m/s]
+            max_depenetration_velocity = 1.0
+            max_gpu_contact_pairs = 2 ** 23  # 2**24 -> needed for 8000 envs and more
+            default_buffer_size_multiplier = 5
+            # 0: never, 1: last sub-step, 2: all sub-steps (default=2)
+            contact_collection = 2
 
     class domain_rand:
         randomize_base_mass = True  # 整机质量随机偏移
@@ -122,7 +221,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
         tracking_sigma = 5
-        max_contact_force = 550  # Forces above this value are penalized
+        max_contact_force = 600  # Forces above this value are penalized
         
         roll_joint_idxs = [0, 5, 6, 11]  # all rolling joints
         yaw_joint_idxs = [1, 7]  # all yawing joints
@@ -137,7 +236,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         y_tracking_sigmas = [6, 60]
         yaw_tracking_sigmas = [6, 60]
 
-        foot_height = 0.045
+        foot_height = 0.07
         torque_weights = [1, 1, 1, 1, 2, 3] * 2
         dof_vel_weights = [3, 3, 1, 1, 1, 3] * 2
 
@@ -164,6 +263,13 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
             torques = -5e-5  # original -1e-5
             dof_vel = -5e-3  # original -5e-4
             dof_acc = -1e-7  # original -1e-7
+    
+    class init_state(LeggedRobotCfg.init_state):
+        pos = [0., 0., 0.85]
+        default_joint_angles = {}
+        for lr in ['l', 'r']:
+            for idx, value in zip(range(1, 7), [0.0, 0.0, -0.46, 0.84, -0.44, 0.0]):
+                default_joint_angles[f'leg_{lr}{idx}_joint'] = value
 
 class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):
