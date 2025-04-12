@@ -373,6 +373,12 @@ kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是�
 1. `cycle_time: 1.2->0.64`，低频率会导致脚跟着地非常严重，因此还是用低频
 2. 直接将`Kuavo42LeggedCfg`中的D系数调成`34->10`，和leju官方的模型保持一致
 
-### kuavo42_legged_leju_simple_ppo v1
+### kuavo42_legged_leju_simple_ppo v1.0.*
 1. 使用简单的神经网络，删除帧堆叠，仅使用1帧信息，全连接模型
 2. PPO系数回到之前的状态`lr: 1e-3, ...`
+
+测试不同的叠帧:（注意在sim2sim_leju.py验证时候需要将`frame_stack`改到对应的帧数
+- v1: 不叠帧
+- v1.0.1: 叠4帧
+- v1.0.2: 叠8帧
+- v1.0.3: 叠16帧
