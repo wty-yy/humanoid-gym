@@ -366,3 +366,9 @@ heading = [-3.14, 3.14]
 kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是双脚摆动频率过高
 ### kuavo42_legged_leju_ppo v1.1.1
 1. `cycle_time: 0.64 -> 1.2`
+
+## 2025.4.12.
+从e622c42 Commit回退，当时已经更新到kuavo42_legged_leju_ppo v1.3.3，将步态模型迁移过来，记录分支为[reproduce_leju](https://github.com/wty-yy/humanoid-gym/tree/reproduce_leju)，但是昨天发现在C++的Mujoco，v1.1已经能够很好的行走了，之前错误的将髋关节的D系数写错了`34->10`，导致效果不好，因此直接回退到当前版本
+### kuavo42_legged_leju_ppo v1.1.2
+1. `cycle_time: 1.2->0.64`，低频率会导致脚跟着地非常严重，因此还是用低频
+2. 直接将`Kuavo42LeggedCfg`中的D系数调成`34->10`，和leju官方的模型保持一致

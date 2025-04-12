@@ -104,7 +104,7 @@ class Kuavo42LeggedLejuCfg(Kuavo42LeggedFineCfg):
         action_noise = 0.02
     
     class rewards(Kuavo42LeggedFineCfg.rewards):
-        cycle_time = 1.2                # sec
+        cycle_time = 0.64                # sec
 
 class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):

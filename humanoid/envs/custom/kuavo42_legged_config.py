@@ -87,7 +87,7 @@ class Kuavo42LeggedCfg(LeggedRobotCfg):
             for idx, value in zip(range(1, 7), [60.0, 60.0, 60.0, 60.0, 15.0, 15.0]):
                 stiffness[f'leg_{lr}{idx}_joint'] = value
         for lr in ['l', 'r']:
-            for idx, value in zip(range(1, 7), [34.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
+            for idx, value in zip(range(1, 7), [10.0, 6.0, 12.0, 12.0, 22.0, 22.0]):
                 damping[f'leg_{lr}{idx}_joint'] = value
 
         # action scale: target angle = actionScale * action + defaultAngle
