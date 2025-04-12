@@ -110,3 +110,22 @@ class Kuavo42LeggedLejuCfgPPO(Kuavo42LeggedFineCfgPPO):
     class runner(Kuavo42LeggedFineCfgPPO.runner):
         policy_class_name = 'LongShortActorCritic'
         experiment_name = 'Kuavo42_legged_leju_ppo'
+
+class Kuavo42LeggedLejuSimpleCfg(Kuavo42LeggedLejuCfg):
+    class env(Kuavo42LeggedLejuCfg.env):
+        frame_stack = 1
+        num_single_obs = 6 + 12 * 3 + 3 * 2 + 2
+        num_observations = int(frame_stack * num_single_obs)
+
+class Kuavo42LeggedLejuSimpleCfgPPO(Kuavo42LeggedLejuCfgPPO):
+    class runner(Kuavo42LeggedLejuCfgPPO.runner):
+        policy_class_name = 'ActorCritic'
+        experiment_name = 'Kuavo42_legged_leju_simple_ppo'
+
+    class algorithm(Kuavo42LeggedLejuCfgPPO.algorithm):
+        entropy_coef = 0.001
+        learning_rate = 1e-3
+        num_learning_epochs = 5
+        gamma = 0.99
+        lam = 0.95
+        num_mini_batches = 4

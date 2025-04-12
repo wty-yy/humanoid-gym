@@ -81,6 +81,9 @@ from .custom.kuavo42_legged_leju_config import Kuavo42LeggedLejuCfg, Kuavo42Legg
 from .custom.kuavo42_legged_leju_env import Kuavo42LeggedLejuEnv
 task_registry.register("kuavo42_legged_leju_ppo", Kuavo42LeggedLejuEnv, Kuavo42LeggedLejuCfg(), Kuavo42LeggedLejuCfgPPO())
 
+from .custom.kuavo42_legged_leju_config import Kuavo42LeggedLejuSimpleCfg, Kuavo42LeggedLejuSimpleCfgPPO
+task_registry.register("kuavo42_legged_leju_simple_ppo", Kuavo42LeggedLejuEnv, Kuavo42LeggedLejuSimpleCfg(), Kuavo42LeggedLejuSimpleCfgPPO())
+
 ############################# G1 #####################################
 from .custom.g1.g1_config import G1RoughCfg, G1RoughCfgPPO
 from .custom.g1.g1_env import G1Env
