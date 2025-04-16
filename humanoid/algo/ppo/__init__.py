@@ -33,4 +33,5 @@
 from .ppo import PPO
 from .on_policy_runner import OnPolicyRunner
 from .actor_critic import ActorCritic
+from .actor_critic_recurrent import ActorCriticRecurrent
 from .rollout_storage import RolloutStorage

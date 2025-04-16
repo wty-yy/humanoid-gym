@@ -32,6 +32,41 @@
 
 import torch
 
+def split_and_pad_trajectories(tensor, dones):
+    """ Splits trajectories at done indices. Then concatenates them and padds with zeros up to the length og the longest trajectory.
+    Returns masks corresponding to valid parts of the trajectories
+    Example: 
+        Input: [ [a1, a2, a3, a4 | a5, a6],
+                 [b1, b2 | b3, b4, b5 | b6]
+                ]
+
+        Output:[ [a1, a2, a3, a4], | [  [True, True, True, True],
+                 [a5, a6, 0, 0],   |    [True, True, False, False],
+                 [b1, b2, 0, 0],   |    [True, True, False, False],
+                 [b3, b4, b5, 0],  |    [True, True, True, False],
+                 [b6, 0, 0, 0]     |    [True, False, False, False],
+                ]                  | ]    
+            
+    Assumes that the inputy has the following dimension order: [time, number of envs, aditional dimensions]
+    """
+    dones = dones.clone()
+    dones[-1] = 1
+    # Permute the buffers to have order (num_envs, num_transitions_per_env, ...), for correct reshaping
+    flat_dones = dones.transpose(1, 0).reshape(-1, 1)
+
+    # Get length of trajectory by counting the number of successive not done elements
+    done_indices = torch.cat((flat_dones.new_tensor([-1], dtype=torch.int64), flat_dones.nonzero()[:, 0]))
+    trajectory_lengths = done_indices[1:] - done_indices[:-1]
+    trajectory_lengths_list = trajectory_lengths.tolist()
+    # Extract the individual trajectories
+    trajectories = torch.split(tensor.transpose(1, 0).flatten(0, 1),trajectory_lengths_list)
+    padded_trajectories = torch.nn.utils.rnn.pad_sequence(trajectories)
+
+
+    trajectory_masks = trajectory_lengths > torch.arange(0, tensor.shape[0], device=tensor.device).unsqueeze(1)
+    return padded_trajectories, trajectory_masks
+
+
 class RolloutStorage:
     class Transition:
         def __init__(self):
@@ -180,3 +215,56 @@ class RolloutStorage:
                 old_sigma_batch = old_sigma[batch_idx]
                 yield obs_batch, critic_observations_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, \
                        old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (None, None), None
+
+    def reccurent_mini_batch_generator(self, num_mini_batches, num_epochs=8):
+
+        padded_obs_trajectories, trajectory_masks = split_and_pad_trajectories(self.observations, self.dones)
+        if self.privileged_observations is not None: 
+            padded_critic_obs_trajectories, _ = split_and_pad_trajectories(self.privileged_observations, self.dones)
+        else: 
+            padded_critic_obs_trajectories = padded_obs_trajectories
+
+        mini_batch_size = self.num_envs // num_mini_batches
+        assert mini_batch_size > 0, f"[ERROR] {self.num_envs=} must greater than {num_mini_batches=}"
+        for ep in range(num_epochs):
+            first_traj = 0
+            for i in range(num_mini_batches):
+                start = i*mini_batch_size
+                stop = (i+1)*mini_batch_size
+
+                dones = self.dones.squeeze(-1)
+                last_was_done = torch.zeros_like(dones, dtype=torch.bool)
+                last_was_done[1:] = dones[:-1]
+                last_was_done[0] = True
+                trajectories_batch_size = torch.sum(last_was_done[:, start:stop])
+                last_traj = first_traj + trajectories_batch_size
+                
+                masks_batch = trajectory_masks[:, first_traj:last_traj]
+                obs_batch = padded_obs_trajectories[:, first_traj:last_traj]
+                critic_obs_batch = padded_critic_obs_trajectories[:, first_traj:last_traj]
+
+                actions_batch = self.actions[:, start:stop]
+                old_mu_batch = self.mu[:, start:stop]
+                old_sigma_batch = self.sigma[:, start:stop]
+                returns_batch = self.returns[:, start:stop]
+                advantages_batch = self.advantages[:, start:stop]
+                values_batch = self.values[:, start:stop]
+                old_actions_log_prob_batch = self.actions_log_prob[:, start:stop]
+
+                # reshape to [num_envs, time, num layers, hidden dim] (original shape: [time, num_layers, num_envs, hidden_dim])
+                # then take only time steps after dones (flattens num envs and time dimensions),
+                # take a batch of trajectories and finally reshape back to [num_layers, batch, hidden_dim]
+                last_was_done = last_was_done.permute(1, 0)
+                hid_a_batch = [ saved_hidden_states.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous()
+                                for saved_hidden_states in self.saved_hidden_states_a ] 
+                hid_c_batch = [ saved_hidden_states.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous()
+                                for saved_hidden_states in self.saved_hidden_states_c ]
+                # remove the tuple for GRU
+                hid_a_batch = hid_a_batch[0] if len(hid_a_batch)==1 else hid_a_batch
+                hid_c_batch = hid_c_batch[0] if len(hid_c_batch)==1 else hid_a_batch
+
+
+                yield obs_batch, critic_obs_batch, actions_batch, values_batch, advantages_batch, returns_batch, \
+                       old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (hid_a_batch, hid_c_batch), masks_batch
+                
+                first_traj = last_traj

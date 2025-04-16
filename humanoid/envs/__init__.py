@@ -95,3 +95,9 @@ task_registry.register("g1_low_speed_stance_ppo", G1Env, G1LowSpeedStanceCfg, G1
 from .custom.g1.g1_config import G1ObsCfg, G1ObsCfgPPO
 from .custom.g1.g1_env import G1ObsEnv
 task_registry.register("g1_obs_ppo", G1ObsEnv, G1ObsCfg, G1ObsCfgPPO)
+
+from .custom.g1.g1_config import G1ObsLSTMCfgPPO
+task_registry.register("g1_obs_lstm_single_ppo", G1ObsEnv, G1ObsCfg, G1ObsLSTMCfgPPO)
+
+from .custom.g1.g1_config import G1ObsLSTMCfg, G1ObsLSTMCfgPPO
+task_registry.register("g1_obs_lstm_ppo", G1ObsEnv, G1ObsLSTMCfg, G1ObsLSTMCfgPPO)

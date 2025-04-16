@@ -263,6 +263,28 @@ class G1ObsCfg(G1LowSpeedStanceCfg):
         num_single_obs = 47
         num_observations = int(frame_stack * num_single_obs)
 
+class G1ObsLSTMCfg(G1ObsCfg):
+    class env(G1ObsCfg.env):
+        frame_stack = 10
+        num_single_obs = 47
+        num_observations = int(frame_stack * num_single_obs)
+
 class G1ObsCfgPPO(G1LowSpeedStanceCfgPPO):
     class runner(G1LowSpeedStanceCfgPPO.runner):
         experiment_name = 'g1_obs_ppo'
+
+class G1ObsLSTMCfgPPO(G1ObsCfgPPO):
+    class policy(G1ObsCfgPPO.policy):
+        init_noise_std = 0.8
+        actor_hidden_dims = [512, 256, 128]
+        critic_hidden_dims = [768, 256, 128]
+        activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+        # only for 'ActorCriticRecurrent':
+        rnn_type = 'lstm'
+        rnn_hidden_size = 512
+        rnn_num_layers = 1
+        
+    class runner(G1ObsCfgPPO.runner):
+        policy_class_name = "ActorCriticRecurrent"
+        max_iterations = 10000
+        experiment_name = 'g1_obs_lstm'

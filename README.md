@@ -382,3 +382,12 @@ kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是�
 - v1.0.1: 叠4帧
 - v1.0.2: 叠8帧
 - v1.0.3: 叠16帧
+
+## 2025.4.16.
+尝试在g1真机上进行训练，考虑的模型为
+1. g1 obs ppo v1: 支持低速站立，叠帧1，状态与unitree gym一致
+2. g1 obs lstm single ppo v1: 在g1 obs v1上使用lstm
+    `python humanoid/scripts/train.py --task=g1_obs_lstm_single_ppo --experiment-name g1_obs_lstm_single --run-name v1 --max-iterations 10000 --headless`
+2. g1 obs lstm ppo v1: 在g1 obs v1上叠帧10，使用lstm
+    `python humanoid/scripts/train.py --task=g1_obs_lstm_ppo --run-name v1 --max-iterations 10000 --headless`
+3. g1 obs lstm domain ppo v1: 在lstm ppo v1上加入leju同样多的域随机化
