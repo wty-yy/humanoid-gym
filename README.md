@@ -391,3 +391,7 @@ kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是�
 2. g1 obs lstm ppo v1: 在g1 obs v1上叠帧10，使用lstm
     `python humanoid/scripts/train.py --task=g1_obs_lstm_ppo --run-name v1 --max-iterations 10000 --headless`
 3. g1 obs lstm domain ppo v1: 在lstm ppo v1上加入leju同样多的域随机化
+    `python humanoid/scripts/train.py --task=g1_obs_lstm_domain_ppo --experiment-name g1_obs_domain --run-name v1 --max-iterations 10000 --headless`
+
+Fix Bug:
+1. 修复`rollout_storage.py`中`split_and_pad_trajectories`返回的traj长度与输入的轨迹长度不对齐的问题

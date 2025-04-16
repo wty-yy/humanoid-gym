@@ -288,3 +288,56 @@ class G1ObsLSTMCfgPPO(G1ObsCfgPPO):
         policy_class_name = "ActorCriticRecurrent"
         max_iterations = 10000
         experiment_name = 'g1_obs_lstm'
+
+class G1ObsDomainCfg(G1ObsLSTMCfg):
+    class domain_rand(G1ObsLSTMCfg.domain_rand):
+        randomize_base_mass = True  # 整机质量随机偏移
+        added_mass_range = [-5., 5.]
+
+        randomize_com_displacement = True  # 质心随机偏移
+        com_displacement_range = [-0.05, 0.05]
+
+        randomize_link_mass = True  # link质量随机比例缩放
+        link_mass_range = [0.8, 1.2]
+
+        randomize_friction = True  # 随机摩擦
+        friction_range = [0.2, 1.0]
+
+        randomize_restitution = True  # 随机弹性系数
+        restitution_range = [0., 0.5]
+
+        randomize_motor_strength = True  # 电机（力矩强度）
+        motor_strength_range = [0.8, 1.2]
+
+        randomize_joint_friction = True  # 关节摩擦
+        joint_friction_range = [0.5, 1.5]
+
+        randomize_joint_armature = True  # 转动惯量
+        joint_armature_range = [0.5, 1.5]
+
+        push_robots = True  # 连续推力
+        push_interval_s = 4
+
+        randomize_kp = True  # kp值
+        kp_range = [0.8, 1.2]
+
+        randomize_kd = True  # kd值
+        kd_range = [0.8, 1.2]
+
+        randomize_joint_pos_bias = True
+        joint_pos_bias_range = [-0.05, 0.05]
+
+        randomize_euler_xy_zero_pos = False
+        euler_xy_zero_pos_range = [-0.03, 0.03]
+
+        # dynamic randomization
+        action_delay = 0.5
+        action_noise = 0.02
+    
+    class env(G1ObsLSTMCfg.env):
+        c_frame_stack = 3
+        single_num_privileged_obs = 73 + 4 + 12 * 5
+        num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+
+    class asset(G1ObsLSTMCfg.asset):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/g1_12dof.xml'

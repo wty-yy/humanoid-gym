@@ -101,3 +101,7 @@ task_registry.register("g1_obs_lstm_single_ppo", G1ObsEnv, G1ObsCfg, G1ObsLSTMCf
 
 from .custom.g1.g1_config import G1ObsLSTMCfg, G1ObsLSTMCfgPPO
 task_registry.register("g1_obs_lstm_ppo", G1ObsEnv, G1ObsLSTMCfg, G1ObsLSTMCfgPPO)
+
+from .custom.g1.g1_config import G1ObsDomainCfg
+from .custom.g1.g1_env import G1ObsDomainEnv
+task_registry.register("g1_obs_lstm_domain_ppo", G1ObsDomainEnv, G1ObsDomainCfg, G1ObsLSTMCfgPPO)

@@ -31,6 +31,7 @@
 
 
 import torch
+import torch.nn.functional as F
 
 def split_and_pad_trajectories(tensor, dones):
     """ Splits trajectories at done indices. Then concatenates them and padds with zeros up to the length og the longest trajectory.
@@ -59,7 +60,12 @@ def split_and_pad_trajectories(tensor, dones):
     trajectory_lengths = done_indices[1:] - done_indices[:-1]
     trajectory_lengths_list = trajectory_lengths.tolist()
     # Extract the individual trajectories
-    trajectories = torch.split(tensor.transpose(1, 0).flatten(0, 1),trajectory_lengths_list)
+    trajectories = list(torch.split(tensor.transpose(1, 0).flatten(0, 1),trajectory_lengths_list))
+
+    # Make sure length of traj as tensor.shape[0]
+    traj = trajectories[0]
+    traj = F.pad(traj, (0, 0, 0, tensor.shape[0] - traj.shape[0]))
+    trajectories[0] = traj
     padded_trajectories = torch.nn.utils.rnn.pad_sequence(trajectories)
 
 
