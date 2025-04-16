@@ -60,8 +60,8 @@ class G1ObsDomainEnv(G1ObsEnv):
             self.com_displacement,  # 3
             self.restitution_coeffs,  # 1
             self.joint_pos_bias,  # 12
-            self.joint_friction_coeffs,  # 12
-            self.joint_armature_coeffs,  # 12
+            # self.joint_friction_coeffs,  # 12
+            # self.joint_armature_coeffs,  # 12
             self.kp_factors,  # 12
             self.kd_factors,  # 12
         ), dim=-1)
@@ -373,21 +373,21 @@ class G1ObsDomainEnv(G1ObsEnv):
                     device=self.device, requires_grad=False
                 )
 
-            self.dof_pos_limits = torch.zeros(self.num_dof, 2, dtype=torch.float, device=self.device, requires_grad=False)
-            # self.dof_vel_limits = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-            self.torque_limits = self.get_torque_limit_from_mujoco() * self.cfg.safety.torque_limit
-            # self.dof_vel_limits = torch.tensor(self.cfg.asset.velocity_limit).to(self.device).to(torch.float32) * self.cfg.safety.vel_limit
-
             self.dof_armature = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+            self.dof_pos_limits = torch.zeros(self.num_dof, 2, dtype=torch.float, device=self.device, requires_grad=False)
+            self.dof_vel_limits = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+            self.torque_limits = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
             for i in range(len(props)):
+                self.dof_armature[i] = props["armature"][i].item()
                 self.dof_pos_limits[i, 0] = props["lower"][i].item() * self.cfg.safety.pos_limit
                 self.dof_pos_limits[i, 1] = props["upper"][i].item() * self.cfg.safety.pos_limit
-                self.dof_armature[i] = props["armature"][i].item()
+                self.dof_vel_limits[i] = props["velocity"][i].item() * self.cfg.safety.vel_limit
+                self.torque_limits[i] = props["effort"][i].item() * self.cfg.safety.torque_limit
 
             self.dof_friction = self.get_frictionloss_from_mujoco()
 
         props["effort"][:] = self.torque_limits.cpu().numpy() / self.cfg.safety.torque_limit
-        # props["velocity"][:] = self.dof_vel_limits.cpu().numpy() /  self.cfg.safety.vel_limit
+        props["velocity"][:] = self.dof_vel_limits.cpu().numpy() /  self.cfg.safety.vel_limit
 
         for i in range(len(props)):
             props["friction"][i] = self.dof_friction[i].item() * self.joint_friction_coeffs[env_id, i].item()

@@ -395,3 +395,4 @@ kuavo42_legged_leju_ppo v1.1迁移到C++的Mujoco中可以稳定走路，但是�
 
 Fix Bug:
 1. 修复`rollout_storage.py`中`split_and_pad_trajectories`返回的traj长度与输入的轨迹长度不对齐的问题
+2. 修复`g1_obs_lstm_domain_ppo`中`torque_limits`无法从MJCF文件中获取的错误

@@ -336,7 +336,7 @@ class G1ObsDomainCfg(G1ObsLSTMCfg):
     
     class env(G1ObsLSTMCfg.env):
         c_frame_stack = 3
-        single_num_privileged_obs = 73 + 4 + 12 * 5
+        single_num_privileged_obs = 73 + 4 + 12 * 5 - 12 * 2
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
 
     class asset(G1ObsLSTMCfg.asset):
